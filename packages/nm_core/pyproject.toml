@@ -22,6 +22,9 @@ dependencies = [
     "rq>=1.16",
 ]
 
+[project.optional-dependencies]
+test = ["pytest", "respx>=0.21", "fakeredis>=2.20"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

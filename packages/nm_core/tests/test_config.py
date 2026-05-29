@@ -21,11 +21,20 @@ def test_dev_default_in_production_hard_fails(monkeypatch):
         Settings()
 
 
-def test_explicit_url_passes_in_production(monkeypatch):
+def test_explicit_urls_pass_in_production(monkeypatch):
     monkeypatch.setenv("ENV", "production")
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://db.internal/prod")
+    monkeypatch.setenv("REDIS_URL", "redis://cache.internal:6379/0")
     s = Settings()
     assert s.DATABASE_URL == "postgresql+psycopg2://db.internal/prod"
+
+
+def test_redis_dev_default_in_production_hard_fails(monkeypatch):
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://db.internal/prod")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    with pytest.raises(RuntimeError, match="REDIS_URL is unset"):
+        Settings()
 
 
 def test_railway_marker_triggers_hard_fail(monkeypatch):

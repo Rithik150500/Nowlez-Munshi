@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 _DEV_DEFAULT_DATABASE_URL = "postgresql+psycopg2://localhost/nowlez_munshi"
+_DEV_DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 _PROD_INDICATOR_ENV_VARS: tuple[str, ...] = (
     "RAILWAY_ENVIRONMENT",
     "RAILWAY_PROJECT_ID",
@@ -62,10 +63,17 @@ class Settings(BaseSettings):
     ARGON2_MEMORY_COST_KB: int = 65536  # 64 MiB
     ARGON2_PARALLELISM: int = 4
 
-    # OTP delivery — WhatsApp (Meta Cloud API)
+    # Redis (outbound dedup, future queue)
+    REDIS_URL: str = _DEV_DEFAULT_REDIS_URL
+
+    # WhatsApp / Meta Cloud API (shared by identity OTP delivery and messaging)
     META_ACCESS_TOKEN: str = ""
     META_PHONE_NUMBER_ID: str = ""
     META_AUTH_TEMPLATE_NAME: str = "auth_otp_v1"
+    META_VERIFY_TOKEN: str = ""  # webhook GET verification handshake
+    META_APP_SECRET: str = ""  # webhook X-Hub-Signature-256 HMAC key
+    META_GRAPH_VERSION: str = "v21.0"
+    WHATSAPP_DISABLED: bool = False  # kill-switch for all outbound WhatsApp
 
     # OTP delivery — SMS (MSG91)
     MSG91_AUTH_KEY: str = ""
@@ -91,19 +99,21 @@ class Settings(BaseSettings):
     ECOURTS_RETRY_BASE_DELAY_SECONDS: float = 1.0
 
     def model_post_init(self, __context: object) -> None:
-        if self.DATABASE_URL != _DEV_DEFAULT_DATABASE_URL:
-            return  # Operator explicitly set it.
-        if _is_production_env():
+        prod = _is_production_env()
+        if self.DATABASE_URL == _DEV_DEFAULT_DATABASE_URL:
+            if prod:
+                raise RuntimeError(
+                    "DATABASE_URL is unset (defaulted to localhost) but a production "
+                    "environment was detected via one of "
+                    f"{('ENV=production', *_PROD_INDICATOR_ENV_VARS)}. Set DATABASE_URL "
+                    "in the env-file or service variables before booting."
+                )
+            logger.info("DATABASE_URL using dev default (localhost). Set it for non-local use.")
+        if self.REDIS_URL == _DEV_DEFAULT_REDIS_URL and prod:
             raise RuntimeError(
-                "DATABASE_URL is unset (defaulted to localhost) but a production "
-                "environment was detected via one of "
-                f"{('ENV=production', *_PROD_INDICATOR_ENV_VARS)}. Set DATABASE_URL "
-                "in the env-file or service variables before booting."
+                "REDIS_URL is unset (defaulted to localhost) but a production environment "
+                "was detected. Set REDIS_URL in the env-file or service variables."
             )
-        logger.info(
-            "DATABASE_URL using dev default (localhost). Set DATABASE_URL for "
-            "non-local use."
-        )
 
 
 def assert_production_ready() -> None:
