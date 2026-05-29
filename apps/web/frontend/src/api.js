@@ -36,4 +36,5 @@ export const api = {
   setPrefs: (cnr, prefs) => req("PUT", `/api/cases/${cnr}/prefs`, prefs),
   notifications: () => req("GET", "/api/notifications"),
   markRead: (id) => req("POST", `/api/notifications/${id}/read`),
+  ask: (question, thread_id) => req("POST", "/api/ask", { question, thread_id }),
 };

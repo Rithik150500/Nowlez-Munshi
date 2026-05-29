@@ -4,6 +4,7 @@ import Login from "./Login.jsx";
 import CaseBook from "./CaseBook.jsx";
 import CaseDetail from "./CaseDetail.jsx";
 import Notifications from "./Notifications.jsx";
+import Chat from "./Chat.jsx";
 
 export default function App() {
   const [me, setMe] = useState(null);
@@ -59,6 +60,9 @@ export default function App() {
         >
           Case book
         </button>
+        <button className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")}>
+          Ask Munshi
+        </button>
         <button className={`tab ${tab === "alerts" ? "active" : ""}`} onClick={() => setTab("alerts")}>
           Alerts
         </button>
@@ -69,6 +73,7 @@ export default function App() {
         ) : (
           <CaseBook onOpen={setOpenCnr} />
         ))}
+      {tab === "chat" && <Chat />}
       {tab === "alerts" && <Notifications />}
     </div>
   );

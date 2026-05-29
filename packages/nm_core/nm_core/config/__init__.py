@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     ECOURTS_RETRY_MAX_ATTEMPTS: int = 3
     ECOURTS_RETRY_BASE_DELAY_SECONDS: float = 1.0
 
+    # AI Munshi (Gemini). No key → deterministic offline agent (dev/tests).
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3-flash-preview"
+    AI_REQUEST_TIMEOUT_SECONDS: float = 60.0
+    AI_MAX_TOOL_ITERATIONS: int = 6
+    AI_HISTORY_TURNS: int = 10  # prior thread turns fed back as context
+
     def model_post_init(self, __context: object) -> None:
         prod = _is_production_env()
         if self.DATABASE_URL == _DEV_DEFAULT_DATABASE_URL:

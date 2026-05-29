@@ -1,8 +1,8 @@
 """WhatsApp command router. Pure logic: (session, phone, text/button) -> reply string.
 
 A WhatsApp sender is identified by phone; first message auto-creates the account
-(the WhatsApp onboarding door). Free text routes to the AI Munshi in M3; for now it
-returns a placeholder so the surface is stable.
+(the WhatsApp onboarding door). Free text routes to the AI Munshi (same brain the
+web chat calls), so both doors answer identically.
 """
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from nm_core import tracking
+from nm_core import ai, tracking
+from nm_core.ai.types import Answer
 from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.ecourts.errors import CNRNotFound, ECourtsError
 from nm_core.ecourts.routing import CNR_REGEX
@@ -45,6 +46,13 @@ def _list(cases, *, empty: str) -> str:
     return "\n\n".join(f"{i + 1}. {_fmt_case(c)}" for i, c in enumerate(cases))
 
 
+def _format_answer(answer: Answer) -> str:
+    text = answer.text
+    if answer.citations:
+        text += "\n\n📎 " + ", ".join(c.cnr for c in answer.citations)
+    return text
+
+
 def handle_message(
     session: Session, *, from_phone: str, text: str | None, button_payload: str | None = None
 ) -> str:
@@ -62,7 +70,7 @@ def handle_message(
         return _track(session, user, upper)
 
     if not raw.startswith("/"):
-        return "🤖 Ask-the-Munshi answers are coming soon. Send a CNR to track a case, or /help."
+        return _format_answer(ai.ask(session, user=user, question=raw, channel="whatsapp"))
 
     parts = raw.split()
     cmd = parts[0].lower()

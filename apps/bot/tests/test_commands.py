@@ -31,8 +31,18 @@ def test_saved_lists_cases(db_session):
     assert CNR in _reply(db_session, "/saved")
 
 
-def test_free_text_is_placeholder(db_session):
-    assert "coming soon" in _reply(db_session, "what is my next hearing?")
+def test_free_text_routes_to_ai(db_session):
+    # No cases for this fresh user → the offline Munshi says so.
+    assert "no cases" in _reply(db_session, "what is my next hearing?").lower()
+
+
+def test_free_text_ai_answers_about_tracked_case(db_session, monkeypatch):
+    from nm_core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "GEMINI_API_KEY", "")  # offline agent
+    _reply(db_session, CNR)  # track it first
+    reply = _reply(db_session, f"what is the status of {CNR}?")
+    assert CNR in reply  # cited
 
 
 def test_forget(db_session):
