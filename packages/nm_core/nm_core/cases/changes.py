@@ -40,6 +40,10 @@ def _is_disposed(stage: str | None) -> bool:
     return bool(stage and _DISPOSED_RE.search(stage))
 
 
+def _normalize_stage(s: str | None) -> str:
+    return " ".join((s or "").lower().split())
+
+
 def _today_ist() -> date:
     return datetime.now(UTC).astimezone(_IST).date()
 
@@ -48,8 +52,9 @@ def detect_changes(old: Case, new: Case, *, today: date | None = None) -> list[C
     changes: list[Change] = []
     today = today or _today_ist()
 
-    # Stage / disposal
-    if (old.stage or "") != (new.stage or ""):
+    # Stage / disposal. Compare normalized (trim/lowercase/collapse-whitespace) so a
+    # cosmetic NIC re-edit (casing/spacing only) doesn't fire a spurious status_change.
+    if _normalize_stage(old.stage) != _normalize_stage(new.stage):
         if _is_disposed(new.stage) and not _is_disposed(old.stage):
             changes.append(
                 Change(

@@ -10,9 +10,19 @@ from nm_core.db.models.audit import AuditLog
 from nm_core.identity.repositories import UserRepository
 
 
-@pytest.mark.parametrize("text", ["STOP", "stop", "Stop.", "stop please", "रोको", "बंद", "cancel"])
+@pytest.mark.parametrize("text", [
+    "STOP", "stop", "Stop.", "stop please", "रोको", "बंद", "cancel",
+    # newly-ported coverage (regression #6)
+    "OPT OUT", "opt-out", "PAUSE", "band karo", "rok do", "unsubscribe", "बंद करो",
+])
 def test_stop_keyword_detected(text):
     assert consent.is_stop_keyword(text) is True
+
+
+@pytest.mark.parametrize("text", ["stopover", "stop the war please now", "cancellation"])
+def test_stop_keyword_false_positives_avoided(text):
+    # prefixes / multi-word phrases that merely contain a keyword must not opt out
+    assert consent.is_stop_keyword(text) is False
 
 
 @pytest.mark.parametrize("text", ["START", "start", "resume!", "चालू", "शुरू"])
