@@ -85,12 +85,46 @@ def link(body: LinkBody, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=401, detail=str(e)) from e
 
 
-@router.get("/me")
-def me(user: User = Depends(get_current_user)) -> dict:
+class ProfileBody(BaseModel):
+    name: str | None = None
+    locale: str | None = None
+
+
+def _me_dict(user: User) -> dict:
     return {
         "id": str(user.id),
         "phone": user.phone,
         "name": user.name,
         "locale": user.locale,
         "is_admin": user.is_admin,
+        "onboarded": user.onboarded_at is not None,
     }
+
+
+@router.get("/me")
+def me(user: User = Depends(get_current_user)) -> dict:
+    return _me_dict(user)
+
+
+@router.put("/me")
+def update_me(
+    body: ProfileBody, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    if body.name is not None:
+        user.name = body.name
+    if body.locale is not None:
+        if body.locale not in ("en", "hi"):
+            raise HTTPException(status_code=422, detail="locale must be en or hi")
+        user.locale = body.locale
+    db.flush()
+    return _me_dict(user)
+
+
+@router.post("/me/onboarded")
+def mark_onboarded(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    from datetime import UTC, datetime
+
+    if user.onboarded_at is None:
+        user.onboarded_at = datetime.now(UTC)
+        db.flush()
+    return _me_dict(user)

@@ -109,6 +109,17 @@ class Settings(BaseSettings):
     ONLYOFFICE_SERVER_URL: str = ""
     ONLYOFFICE_JWT_SECRET: str = ""
 
+    # Email (transactional). "console" logs instead of sending (dev/tests).
+    EMAIL_PROVIDER: str = "console"  # console | smtp
+    EMAIL_FROM: str = "Nowlez Munshi <no-reply@nowlez.in>"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
+    # Re-engagement: nudge users inactive for this many days
+    REENGAGE_AFTER_DAYS: int = 14
+
     # AI Munshi (Gemini). No key → deterministic offline agent (dev/tests).
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3-flash-preview"

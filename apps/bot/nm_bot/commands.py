@@ -30,6 +30,19 @@ _HELP = (
     "• /web — open your case book on the web"
 )
 
+_HELP_HI = (
+    "🧑‍⚖️ *Nowlez Munshi*\n"
+    "• केस ट्रैक करने के लिए *CNR* (16 अक्षर) भेजें\n"
+    "• /saved — आपकी केस बुक\n"
+    "• /today, /this_week — आगामी सुनवाई\n"
+    "• /forget <CNR> — ट्रैक करना बंद करें\n"
+    "• /web — वेब पर अपनी केस बुक खोलें"
+)
+
+
+def _help_for(user) -> str:
+    return _HELP_HI if getattr(user, "locale", "en") == "hi" else _HELP
+
 
 def _fmt_case(case) -> str:
     line = f"*{case.title or case.cnr}*\n{case.cnr}"
@@ -74,7 +87,7 @@ def handle_message(
 
     raw = (button_payload or text or "").strip()
     if not raw:
-        return _HELP
+        return _help_for(user)
 
     upper = raw.upper()
     if CNR_REGEX.match(upper):
@@ -88,7 +101,7 @@ def handle_message(
     args = parts[1:]
 
     if cmd in ("/start", "/help"):
-        return _HELP
+        return _help_for(user)
     if cmd == "/web":
         link = _web_link(user)
         return f"📱 Open Nowlez Munshi on the web:\n{link}" if link else "Web app isn't configured."
