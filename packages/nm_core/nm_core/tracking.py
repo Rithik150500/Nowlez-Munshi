@@ -8,11 +8,14 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from nm_core import observability
 from nm_core.cases import CasePreferenceRepository, CaseRepository, sync_case
 from nm_core.cases.changes import Change
 from nm_core.db.models.case import Case
+from nm_core.db.models.manual_review import ManualReviewItem
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
 from nm_core.notifications import dispatch_changes
@@ -68,7 +71,52 @@ def run_refresh_sweep(session: Session, *, limit: int = 100) -> dict[str, int]:
             refreshed += 1
             if result.changes:
                 changed += 1
-        except Exception:  # noqa: BLE001 — one bad case must not stop the sweep
+            if case.consecutive_failures:  # recovered — clear the failure streak
+                case.consecutive_failures = 0
+                session.flush()
+        except Exception as e:  # noqa: BLE001 — one bad case must not stop the sweep
             errored += 1
+            _record_failure(session, case, e)
     return {"refreshed": refreshed, "changed": changed, "errored": errored,
             "skipped": skipped, "due": len(due)}
+
+
+# Escalation thresholds for repeatedly-failing cases (eCourts drift / persistent errors).
+FAILURE_ALERT_THRESHOLD = 3   # surface to observability/Sentry
+FAILURE_REVIEW_THRESHOLD = 5  # park in the operator manual-review queue
+
+
+def _record_failure(session: Session, case: Case, exc: Exception) -> None:
+    """Bump the case's consecutive-failure counter and escalate at the thresholds."""
+    case.consecutive_failures = (case.consecutive_failures or 0) + 1
+    n = case.consecutive_failures
+    session.flush()
+    if n == FAILURE_ALERT_THRESHOLD:
+        observability.incr("ecourts.case.failing")
+        observability.get_logger("nm_core.tracking").warning(
+            "case %s has failed %d consecutive refreshes: %s", case.cnr, n, type(exc).__name__
+        )
+    if n >= FAILURE_REVIEW_THRESHOLD:
+        _enqueue_manual_review(session, case, reason=type(exc).__name__, failure_count=n)
+
+
+def _enqueue_manual_review(
+    session: Session, case: Case, *, reason: str, failure_count: int
+) -> None:
+    """Upsert the single open manual-review row for this case."""
+    existing = session.execute(
+        select(ManualReviewItem).where(
+            ManualReviewItem.case_id == case.id, ManualReviewItem.resolved_at.is_(None)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.failure_count = failure_count
+        existing.reason = reason
+    else:
+        session.add(
+            ManualReviewItem(
+                case_id=case.id, user_id=case.user_id, cnr=case.cnr,
+                reason=reason, failure_count=failure_count,
+            )
+        )
+    session.flush()

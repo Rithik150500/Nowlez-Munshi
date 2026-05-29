@@ -8,6 +8,7 @@ from nm_core.db.models.billing import Subscription
 from nm_core.db.models.case import Case, CaseOrder, CasePreference
 from nm_core.db.models.chat import ChatMessage, ChatThread
 from nm_core.db.models.document import Document
+from nm_core.db.models.manual_review import ManualReviewItem
 from nm_core.db.models.messaging import MessageLog, OutboundMessage
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.push import PushSubscription
@@ -23,6 +24,7 @@ __all__ = [
     "ChatMessage",
     "ChatThread",
     "Document",
+    "ManualReviewItem",
     "MessageLog",
     "Membership",
     "Notification",

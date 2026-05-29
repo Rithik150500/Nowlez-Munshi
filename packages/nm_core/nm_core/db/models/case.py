@@ -55,6 +55,11 @@ class Case(Base):
     last_change_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Consecutive failed refresh attempts; resets to 0 on success. Drives the
+    # manual-review escalation in the sweep.
+    consecutive_failures: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
