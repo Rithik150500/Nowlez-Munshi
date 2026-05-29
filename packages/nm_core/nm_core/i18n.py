@@ -57,6 +57,26 @@ _BOT: dict[str, dict[str, str]] = {
         "en": "🔔 Welcome back! WhatsApp alerts are on again.",
         "hi": "🔔 वापसी पर स्वागत है! WhatsApp अलर्ट फिर से चालू हैं।",
     },
+    # Onboarding: bilingual welcome (shown above the language-picker buttons,
+    # before the user has chosen a language).
+    "welcome": {
+        "en": ("🧑‍⚖️ Welcome to *Nowlez Munshi* — your case clerk on WhatsApp.\n"
+               "नमस्ते! Choose your language / अपनी भाषा चुनें:"),
+        "hi": ("🧑‍⚖️ *Nowlez Munshi* में आपका स्वागत है — WhatsApp पर आपका केस मुंशी।\n"
+               "Choose your language / अपनी भाषा चुनें:"),
+    },
+    "onboard_done": {
+        "en": ("Great — you're all set! 🎉\n\n"
+               "Here's what a tracked case looks like:\n\n"
+               "*Sample v. State*\nDLND010000012024\nDistrict Court, Delhi\n"
+               "Next hearing: 12 Jun 2026\n\n"
+               "📩 Now send me a *CNR* (16 characters) to track your first case."),
+        "hi": ("बढ़िया — सब तैयार है! 🎉\n\n"
+               "एक ट्रैक किया गया केस ऐसा दिखता है:\n\n"
+               "*Sample v. State*\nDLND010000012024\nजिला न्यायालय, दिल्ली\n"
+               "अगली सुनवाई: 12 जून 2026\n\n"
+               "📩 अब अपना पहला केस ट्रैक करने के लिए *CNR* (16 अक्षर) भेजें।"),
+    },
 }
 
 # Web SPA UI strings.

@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from nm_core import ai, consent, identity, tracking
+from nm_core import ai, consent, identity, messaging, tracking
 from nm_core.ai.types import Answer
 from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.config import get_settings
@@ -57,6 +57,47 @@ def _web_link(user, next_path: str = "/") -> str | None:
     return f"{base.rstrip('/')}/link#token={token}&next={next_path}"
 
 
+_ONBOARD_LANG_PREFIX = "onboard:lang:"
+_GREETINGS = frozenset({
+    "hi", "hii", "hey", "hello", "helo", "yo", "start", "namaste",
+    "नमस्ते", "नमस्कार", "हाय", "हेलो",
+})
+
+
+def _is_greeting(raw: str) -> bool:
+    return raw.split()[0].strip(".,!?;:'\"()[]।").lower() in _GREETINGS
+
+
+def _send_welcome(session: Session, user) -> str:
+    """Send the bilingual welcome + a language-picker (interactive buttons) inline.
+
+    Returns "" so the webhook handler enqueues nothing more — the interactive
+    message can't be expressed as the plain-text reply string.
+    """
+    messaging.send_interactive_buttons(
+        session,
+        to_phone=user.phone,
+        user_id=user.id,
+        body=t("welcome", user.locale),
+        buttons=[
+            {"id": f"{_ONBOARD_LANG_PREFIX}en", "title": "English"},
+            {"id": f"{_ONBOARD_LANG_PREFIX}hi", "title": "हिंदी"},
+        ],
+    )
+    return ""
+
+
+def _complete_onboarding(session: Session, user, locale: str) -> str:
+    """Persist the chosen language, mark onboarded, and reply with a demo + prompt."""
+    from nm_core.i18n import SUPPORTED
+
+    user.locale = locale if locale in SUPPORTED else "en"
+    user.onboarded_at = datetime.now(UTC)
+    user.re_engaged_at = None  # a fresh start resets the re-engagement clock
+    session.flush()
+    return t("onboard_done", user.locale)
+
+
 def handle_message(
     session: Session, *, from_phone: str, text: str | None, button_payload: str | None = None
 ) -> str:
@@ -80,18 +121,26 @@ def handle_message(
             consent.set_opt_out(session, user=user, opted_out=False, keyword=raw[:32])
             return t("opted_in", user.locale)
 
+    # Onboarding: language-picker button callback completes onboarding.
+    if button_payload and button_payload.startswith(_ONBOARD_LANG_PREFIX):
+        return _complete_onboarding(session, user, button_payload[len(_ONBOARD_LANG_PREFIX):])
+
     upper = raw.upper()
     if CNR_REGEX.match(upper):
         return _track(session, user, upper)
 
     if not raw.startswith("/"):
+        if _is_greeting(raw):  # first-touch greeting → show the welcome + language picker
+            return _send_welcome(session, user)
         return _format_answer(ai.ask(session, user=user, question=raw, channel="whatsapp"))
 
     parts = raw.split()
     cmd = parts[0].lower()
     args = parts[1:]
 
-    if cmd in ("/start", "/help"):
+    if cmd == "/start":
+        return _send_welcome(session, user)
+    if cmd == "/help":
         return _help_for(user)
     if cmd == "/web":
         link = _web_link(user)
