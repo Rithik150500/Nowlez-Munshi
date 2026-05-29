@@ -12,7 +12,31 @@ export default function App() {
   const [tab, setTab] = useState("cases");
   const [openCnr, setOpenCnr] = useState(null);
 
+  // Continuity handoff: a WhatsApp "open on web" link arrives as
+  // /link#token=…&next=… — exchange the token for a session, then deep-navigate.
+  const consumeLinkHash = async () => {
+    if (!window.location.hash.startsWith("#token=")) return;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const token = params.get("token");
+    const next = params.get("next") || "/";
+    history.replaceState(null, "", window.location.pathname); // strip token from URL
+    try {
+      const r = await api.exchangeLink(token);
+      setToken(r.access_token);
+      const m = next.match(/^\/cases\/([A-Za-z0-9]+)/);
+      if (m) {
+        setTab("cases");
+        setOpenCnr(m[1].toUpperCase());
+      } else if (next.startsWith("/chat")) {
+        setTab("chat");
+      }
+    } catch {
+      setToken(null);
+    }
+  };
+
   const loadMe = async () => {
+    await consumeLinkHash();
     if (!getToken()) {
       setMe(null);
       setReady(true);

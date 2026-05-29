@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # Opaque refresh sessions
     REFRESH_TTL_DAYS: int = 30
 
+    # Continuity handoff (WhatsApp → web deep-link)
+    LINK_TOKEN_TTL_MINUTES: int = 10
+    WEB_BASE_URL: str = ""  # e.g. https://app.nowlez.in — empty disables deep-links
+
     # OTP
     OTP_LENGTH: int = 6
     OTP_TTL_MINUTES: int = 10

@@ -10,9 +10,10 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from nm_core import ai, tracking
+from nm_core import ai, identity, tracking
 from nm_core.ai.types import Answer
 from nm_core.cases import CasePreferenceRepository, CaseRepository
+from nm_core.config import get_settings
 from nm_core.ecourts.errors import CNRNotFound, ECourtsError
 from nm_core.ecourts.routing import CNR_REGEX
 from nm_core.identity.repositories import UserRepository
@@ -25,7 +26,8 @@ _HELP = (
     "• /forget <CNR> — stop tracking\n"
     "• /snooze <CNR> <days> — pause alerts\n"
     "• /alerts <CNR> <all|orders_only|hearings_only|digest_only>\n"
-    "• /digest_on, /digest_off"
+    "• /digest_on, /digest_off\n"
+    "• /web — open your case book on the web"
 )
 
 
@@ -53,6 +55,15 @@ def _format_answer(answer: Answer) -> str:
     return text
 
 
+def _web_link(user, next_path: str = "/") -> str | None:
+    """A short-lived 'continue on web' deep-link, or None if web isn't configured."""
+    base = get_settings().WEB_BASE_URL
+    if not base:
+        return None
+    token = identity.create_link_token(user.id)
+    return f"{base.rstrip('/')}/link#token={token}&next={next_path}"
+
+
 def handle_message(
     session: Session, *, from_phone: str, text: str | None, button_payload: str | None = None
 ) -> str:
@@ -78,6 +89,9 @@ def handle_message(
 
     if cmd in ("/start", "/help"):
         return _HELP
+    if cmd == "/web":
+        link = _web_link(user)
+        return f"📱 Open Nowlez Munshi on the web:\n{link}" if link else "Web app isn't configured."
     if cmd == "/saved":
         return _list(
             cases.list_by_user(user.id), empty="No cases yet. Send a CNR to start tracking."
@@ -110,7 +124,11 @@ def _track(session: Session, user, cnr: str) -> str:
             f"Couldn't reach eCourts for {cnr} right now ({type(e).__name__}). "
             "Try again shortly."
         )
-    return "✅ Tracking now. I'll alert you on changes.\n\n" + _fmt_case(result.case)
+    reply = "✅ Tracking now. I'll alert you on changes.\n\n" + _fmt_case(result.case)
+    link = _web_link(user, next_path=f"/cases/{cnr}")
+    if link:
+        reply += f"\n\n📱 Open on web: {link}"
+    return reply
 
 
 def _hearings(cases, user_id, start: date, end: date, label: str) -> str:

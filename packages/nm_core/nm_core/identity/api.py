@@ -172,6 +172,38 @@ def set_password(
     )
 
 
+def create_link_token(user_id: uuid.UUID) -> str:
+    """Mint a short-lived continuity link token for the given user (web deep-link)."""
+    return _jwt.encode_link_token(user_id)
+
+
+def exchange_link_token(
+    session: Session,
+    *,
+    token: str,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+) -> dict:
+    """Exchange a continuity link token for a normal session (access + refresh)."""
+    claims = _jwt.decode_link_token(token)
+    user_id = uuid.UUID(claims["sub"])
+    users = UserRepository(session)
+    user = users.get_by_id(user_id)
+    if user is None or not user.is_active:
+        from nm_core.identity.errors import InvalidToken
+
+        raise InvalidToken("link token refers to an unknown user")
+    users.touch_last_login(user.id)
+    refresh_raw, _ = _sessions.issue_refresh_token(
+        session, user_id=user.id, user_agent=user_agent, ip_address=ip_address
+    )
+    access = _jwt.encode_access_token(user.id)
+    AuditRepository(session).log_event(
+        event_type="user.login.link", user_id=user.id, source="identity", ip_address=ip_address
+    )
+    return _login_result(user, access=access, refresh=refresh_raw)
+
+
 def dev_login(session: Session, *, phone: str, name: str | None = None) -> dict:
     """Credential-free login for local dev/demo. Hard-disabled unless ``DEV_MODE``."""
     if not get_settings().DEV_MODE:

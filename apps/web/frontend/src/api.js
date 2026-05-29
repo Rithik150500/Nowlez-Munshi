@@ -37,4 +37,5 @@ export const api = {
   notifications: () => req("GET", "/api/notifications"),
   markRead: (id) => req("POST", `/api/notifications/${id}/read`),
   ask: (question, thread_id) => req("POST", "/api/ask", { question, thread_id }),
+  exchangeLink: (token) => req("POST", "/api/auth/link", { token }),
 };

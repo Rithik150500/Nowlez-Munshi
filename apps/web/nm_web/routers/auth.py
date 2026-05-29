@@ -33,6 +33,10 @@ class DevLoginBody(BaseModel):
     name: str | None = None
 
 
+class LinkBody(BaseModel):
+    token: str
+
+
 @router.post("/start")
 def start(body: StartBody, db: Session = Depends(get_db)) -> dict:
     try:
@@ -70,6 +74,15 @@ def dev_login(body: DevLoginBody, db: Session = Depends(get_db)) -> dict:
     if not get_settings().DEV_MODE:
         raise HTTPException(status_code=404, detail="not found")
     return identity.dev_login(db, phone=body.phone, name=body.name)
+
+
+@router.post("/link")
+def link(body: LinkBody, db: Session = Depends(get_db)) -> dict:
+    """Exchange a WhatsApp→web continuity link token for a session."""
+    try:
+        return identity.exchange_link_token(db, token=body.token)
+    except IdentityError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
 
 @router.get("/me")
