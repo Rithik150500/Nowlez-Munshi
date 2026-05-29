@@ -7,6 +7,7 @@ import fakeredis
 import pytest
 
 from nm_core.billing.munshi import (
+    DUE_DAYS,
     GRACE_DAYS,
     generate_invoice,
     mark_invoice_paid,
@@ -21,6 +22,7 @@ from nm_core.messaging import redis_dedup
 from nm_core.tracking import run_refresh_sweep, track_case
 
 CNR = "DLND010000012024"
+_DEADLINE_DAYS = DUE_DAYS + GRACE_DAYS  # cycle_end → suspension
 
 
 @pytest.fixture(autouse=True)
@@ -50,14 +52,14 @@ def _postpaid_user_with_invoice(db_session):
 
 def test_within_grace_not_suspended(db_session):
     user, invoice = _postpaid_user_with_invoice(db_session)
-    just_inside = invoice.cycle_end + timedelta(days=GRACE_DAYS - 1)
+    just_inside = invoice.cycle_end + timedelta(days=_DEADLINE_DAYS - 1)
     assert run_grace_suspension(db_session, now=just_inside)["suspended"] == 0
     assert user.billing_suspended_at is None
 
 
 def test_past_grace_suspends_and_sweep_skips(db_session):
     user, invoice = _postpaid_user_with_invoice(db_session)
-    past = invoice.cycle_end + timedelta(days=GRACE_DAYS + 1)
+    past = invoice.cycle_end + timedelta(days=_DEADLINE_DAYS + 1)
     assert run_grace_suspension(db_session, now=past)["suspended"] == 1
     assert user.billing_suspended_at is not None
     assert invoice.status == "suspended"
@@ -70,7 +72,7 @@ def test_past_grace_suspends_and_sweep_skips(db_session):
 
 def test_payment_resumes(db_session):
     user, invoice = _postpaid_user_with_invoice(db_session)
-    past = invoice.cycle_end + timedelta(days=GRACE_DAYS + 1)
+    past = invoice.cycle_end + timedelta(days=_DEADLINE_DAYS + 1)
     run_grace_suspension(db_session, now=past)
     assert user.billing_suspended_at is not None
 
