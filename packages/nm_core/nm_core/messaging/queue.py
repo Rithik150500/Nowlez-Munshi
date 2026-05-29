@@ -77,3 +77,31 @@ def enqueue_send_daily_template(
         retry=_RETRY,
     )
     return True
+
+
+def enqueue_send_document(
+    *,
+    to_phone: str,
+    storage_key: str,
+    filename: str,
+    caption: str | None = None,
+    user_id: uuid.UUID | None = None,
+    dedup_key: str | None = None,
+) -> bool:
+    """Enqueue a document (PDF) send. The job re-reads bytes from storage at send
+    time, so the queue payload stays small and a retry re-resolves the key."""
+    if get_settings().WHATSAPP_DISABLED:
+        return False
+    if dedup_key and not claim_send_dedup(dedup_key):
+        return False
+    _queue().enqueue(
+        jobs.do_send_document,
+        to_phone=to_phone,
+        storage_key=storage_key,
+        filename=filename,
+        caption=caption,
+        user_id=str(user_id) if user_id else None,
+        dedup_key=dedup_key,
+        retry=_RETRY,
+    )
+    return True
