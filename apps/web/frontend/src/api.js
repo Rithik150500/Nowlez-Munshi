@@ -49,4 +49,15 @@ export const api = {
   documents: () => req("GET", "/api/documents"),
   createDocument: (title) => req("POST", "/api/documents", { title }),
   editorConfig: (id) => req("GET", `/api/documents/${id}/editor`),
+  uploadDocument: async (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const headers = {};
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch("/api/documents/upload", { method: "POST", headers, body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    return data;
+  },
 };

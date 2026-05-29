@@ -43,6 +43,20 @@ TOOL_DECLARATIONS = [
             "required": ["cnr"],
         },
     },
+    {
+        "name": "list_documents",
+        "description": "List the chamber's uploaded documents (title + summary).",
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "get_document_text",
+        "description": "Read an uploaded document's extracted text by (partial) title.",
+        "parameters": {
+            "type": "object",
+            "properties": {"title": {"type": "string", "description": "document title (or part)"}},
+            "required": ["title"],
+        },
+    },
 ]
 
 
@@ -54,11 +68,15 @@ class ToolContext:
     """
 
     def __init__(self, session: Session, user) -> None:
-        from nm_core.teams import accessible_user_ids
+        from nm_core.teams import AccountRepository, accessible_user_ids
 
+        self.session = session
         self.repo = CaseRepository(session)
         self.user_id = user.id
         self.visible = accessible_user_ids(session, user)
+        self.account_ids = {
+            a.id for a in AccountRepository(session).list_accounts_for_user(user.id)
+        }
         self.cited: dict[str, str] = {}  # cnr -> title
         self.calls: list[dict] = []  # {name, args} executed, for the answer record
 
@@ -75,7 +93,34 @@ class ToolContext:
             return self._get_orders(str(args.get("cnr", "")).upper())
         if name == "get_order_text":
             return self._get_order_text(str(args.get("cnr", "")).upper())
+        if name == "list_documents":
+            return self._list_documents()
+        if name == "get_document_text":
+            return self._get_document_text(str(args.get("title", "")))
         return {"error": f"unknown tool {name}"}
+
+    def _list_documents(self) -> dict:
+        from nm_core.documents import DocumentRepository
+
+        docs = DocumentRepository(self.session).list_for_accounts(self.account_ids)
+        return {
+            "documents": [
+                {"title": d.title, "summary": d.summary or "(not yet processed)"} for d in docs
+            ]
+        }
+
+    def _get_document_text(self, title: str) -> dict:
+        from nm_core.documents import DocumentRepository
+
+        title_l = title.lower()
+        for d in DocumentRepository(self.session).list_for_accounts(self.account_ids):
+            if title_l in (d.title or "").lower():
+                return {
+                    "title": d.title,
+                    "summary": d.summary,
+                    "text": (d.extracted_text or "")[:4000],
+                }
+        return {"error": f"no document matching '{title}'"}
 
     def _list_cases(self) -> dict:
         cases = self.repo.list_visible(self.visible)
