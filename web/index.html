@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nowlez Munshi</title>
+  <style>
+    :root { --ink:#1a1a2e; --accent:#3a3aff; --muted:#6b7280; --line:#e5e7eb; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin:0; color:var(--ink);
+           background:#f7f7fb; }
+    header { background:var(--ink); color:#fff; padding:16px 24px; }
+    header h1 { margin:0; font-size:18px; } header p { margin:4px 0 0; color:#b9b9d6; font-size:13px; }
+    main { max-width:860px; margin:24px auto; padding:0 16px; display:grid; gap:20px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
+    .card h2 { margin:0 0 12px; font-size:15px; }
+    input, button { font:inherit; padding:9px 12px; border-radius:8px; border:1px solid var(--line); }
+    button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
+    button.secondary { background:#eef; color:var(--accent); }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .muted { color:var(--muted); font-size:13px; }
+    .case { border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+    .badge { font-size:11px; padding:2px 8px; border-radius:99px; margin-left:6px; }
+    .badge.nowlez { background:#e0e7ff; color:#3730a3; }
+    .badge.munshi { background:#dcfce7; color:#166534; }
+    .badge.unknown { background:#f3f4f6; color:#6b7280; }
+    .answer { white-space:pre-wrap; background:#f4f4ff; border-radius:8px; padding:12px; }
+    .cites { font-size:12px; color:var(--muted); margin-top:6px; }
+    .hide { display:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Nowlez Munshi</h1>
+    <p>One AI legal clerk — same answers on web &amp; WhatsApp, over one case book.</p>
+  </header>
+  <main>
+    <section class="card" id="loginCard">
+      <h2>Sign in (dev)</h2>
+      <div class="row">
+        <input id="phone" placeholder="+919999900000" value="+919999900000" size="20" />
+        <button id="loginBtn">Dev login</button>
+      </div>
+      <p class="muted">Uses <code>POST /auth/dev-login</code> (skips OTP delivery). Seeded demo phone is pre-filled.</p>
+    </section>
+
+    <section class="card hide" id="appCard">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Your case book</h2>
+        <button class="secondary" id="logoutBtn">Sign out</button>
+      </div>
+      <div id="cases"></div>
+
+      <h2 style="margin-top:18px">Ask your Munshi</h2>
+      <div class="row">
+        <input id="question" placeholder="When is the next hearing in Sharma?" style="flex:1; min-width:240px" />
+        <button id="askBtn">Ask</button>
+      </div>
+      <div id="answerWrap" class="hide">
+        <div class="answer" id="answer"></div>
+        <div class="cites" id="cites"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

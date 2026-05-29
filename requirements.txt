@@ -1,0 +1,21 @@
+# Nowlez Munshi — runtime dependencies.
+#
+# The shared packages are pinned to the shared repo @ a4713f8 (the latest SHA)
+# for reproducible PROD builds. This also standardizes the cross-repo pin and
+# closes the casepilot(@3d25eb4)/ecourts-bot(@b5994ea) skew.
+#
+# For LOCAL / Claude-Code-web dev, install the editable copies under
+# /home/user/shared/* instead (see .claude/session_start.sh and the README) —
+# pip prefers an existing editable install over these git pins.
+
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+httpx>=0.27
+
+# Shared spine (prod pins).
+data_access @ git+https://github.com/Rithik150500/shared.git@a4713f8#subdirectory=data-access
+ecourts_client @ git+https://github.com/Rithik150500/shared.git@a4713f8#subdirectory=ecourts_client
+whatsapp_delivery @ git+https://github.com/Rithik150500/shared.git@a4713f8#subdirectory=whatsapp_delivery
+identity @ git+https://github.com/Rithik150500/shared.git@a4713f8#subdirectory=identity
+case_billing @ git+https://github.com/Rithik150500/shared.git@a4713f8#subdirectory=case-billing
