@@ -134,5 +134,39 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 | AI Tavily web search · chat feedback/edit · legal-doc drafting (Node) | ✅ |
 | Paginated order viewer (WhatsApp) | ⬜ deferred (needs interactive list + media UX polish) |
 | Referrals · coupons · waitlist (growth-billing) | ⬜ Wave 5 |
-| AI differentiation (Tavily, drafting, chat feedback) | ⬜ Wave 4 |
+
+## Post-Waves-1–4 fidelity verification (regressions to fix)
+
+A fresh read of the shipped port against the legacy surfaced these behavioral
+regressions (file:line confirmed both sides). Ranked by user impact:
+
+| # | Bug | Where | Fix |
+|---|---|---|---|
+| 1 | Cause-list back-resolution passes the raw case-type abbreviation (`"WP"`) to `caseNumberSearch.php`; eCourts needs the **numeric NIC code** (legacy translates via cached `list_case_types`). Back-resolution fails for most rows → guts the cause-list digest. | `cause_lists.py:130` | M |
+| 2 | No "exactly one match" guard — takes `hits[0]`, so an ambiguous search binds a row to the **wrong CNR**. | `cause_lists.py:134` | S |
+| 3 | FIR police-station listing passes the full complex code, but the listing endpoint needs `est_code` → FIR guided-search returns no stations. | `search_flow.py` `_after_complex` | S |
+| 4 | Munshi billing uses a current-snapshot count, no 200-case cap, and a `cycle_end+7d` grace anchor — vs legacy distinct-over-window count, 200 cap, `due_at+7d`. | `billing/munshi.py` | M |
+| 5 | Stage-change comparison isn't trim/lowercase-normalized → cosmetic NIC edits fire spurious `status_change` alerts. | `cases/changes.py:52` | S |
+| 6 | STOP keyword set is first-token-only + narrow — misses `OPT OUT`, `PAUSE`, romanized/multi-word Hindi (`band karo`). DPDP-sensitive. | `consent.py:21` | S |
+| 7 | Legacy `fetch_url`/Tavily-Extract tool dropped — agent can't pull full judgment text from a URL. | `ai/tavily.py` | M |
+
+Faithful (no action): cycle math, trial + cross-product exemption, Razorpay webhook
+core, drafting (byte-identical runner), interactive/document send.
+
+## Wave 5 plan (build-ready specs in agent reports)
+
+Migrations strictly sequential from **0020**.
+
+**Documents & search** — *0020 unblocks all:* add `documents.{case_id, document_type,
+retry_count, permanently_failed}` + Postgres-only `search_tsv` generated columns + GIN on
+documents/cases/orders (SQLite → LIKE fallback).
+1. Universal FTS (M) — new `nm_core/search/`; port BM25 normalize/merge verbatim, dialect-split.
+2. File-tree / rename / reclassify (M) — flat DB "library grouped by case"; port rename validation.
+3. OCR (S–M) — **Path A: send scanned-PDF bytes to Gemini** (matches legacy; no Tesseract dep).
+4. AI auto-classify / name / attach (L) — new structured-Gemini helper; save-then-enrich worker split.
+
+**Growth & web polish** — ICS export (S) → waitlist+demo (S; public router + IP rate-limiter)
+→ GDPR ZIP export (M) → coupons (M) → referrals (M) → drip lifecycle (L).
+Cross-cutting: a shared `billing/webhook.py` activation hook (coupons + referrals), the
+tier-on-Subscription mapping for "+15 days" rewards, and the no-client-entity mapping.
 | Universal FTS · file-tree · OCR · drip · GDPR export · richer re-engage · ICS · voice · admin breadth · client entity | ⬜ Wave 5 |
