@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Index, String, Text, func, text
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from nm_core.db.base import Base
@@ -40,6 +40,9 @@ class User(Base):
     whatsapp_opted_out_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Day-of-month (1–31) the user is billed for Munshi postpaid. Null = not on
+    # postpaid. Clamped to month length at cycle time (see billing.cycles).
+    billing_anniversary_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

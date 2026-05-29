@@ -36,6 +36,11 @@ def _previous_anniversary_calendar_day(anniversary_day: int, today: date) -> dat
     return _clamp_day_to_month(prev_year, prev_month, anniversary_day)
 
 
+def is_anniversary(anniversary_day: int, today: date) -> bool:
+    """True if ``today`` is the user's (clamped) billing anniversary — i.e. invoice day."""
+    return _clamp_day_to_month(today.year, today.month, anniversary_day) == today
+
+
 def compute_cycle_window(anniversary_date: date, today: date) -> tuple[datetime, datetime]:
     """Return (cycle_start, cycle_end) IST datetimes for the cycle ending on ``today``.
 
