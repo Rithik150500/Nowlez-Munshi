@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from nm_core import messaging, push
 from nm_core.cases.changes import Change
+from nm_core.consent import is_opted_out
 from nm_core.db.models.case import Case, CasePreference
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
@@ -62,7 +63,7 @@ def dispatch_change(
     body = change.summary
 
     if _realtime_allowed(change, pref):
-        if user.phone:
+        if user.phone and not is_opted_out(user):
             today = datetime.now(UTC).date().isoformat()
             if messaging.enqueue_send_text(
                 to_phone=user.phone,

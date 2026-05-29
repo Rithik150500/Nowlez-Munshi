@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from nm_core import email, messaging
 from nm_core.cases import CasePreferenceRepository
+from nm_core.consent import is_opted_out
 from nm_core.db.models.case import Case
 from nm_core.db.models.user import User
 
@@ -60,7 +61,7 @@ def send_tomorrow_digests(session: Session, *, today: date | None = None) -> int
         if not listed:
             continue
         summary = "; ".join(f"{c.title or c.cnr} ({c.cnr})" for c in listed)
-        if user.phone:
+        if user.phone and not is_opted_out(user):
             messaging.enqueue_send_daily_template(
                 session,
                 user_id=user.id,

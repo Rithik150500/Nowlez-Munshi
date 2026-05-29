@@ -47,6 +47,16 @@ _BOT: dict[str, dict[str, str]] = {
     },
     "unknown_cmd": {"en": "Unknown command {cmd}. Send /help.",
                     "hi": "अज्ञात कमांड {cmd}। /help भेजें।"},
+    "opted_out": {
+        "en": ("🔕 You've been opted out of WhatsApp alerts. You won't get proactive "
+               "messages from Nowlez Munshi. Reply START anytime to turn them back on."),
+        "hi": ("🔕 आपने WhatsApp अलर्ट बंद कर दिए हैं। अब Nowlez Munshi से सूचनाएँ नहीं आएँगी। "
+               "फिर से चालू करने के लिए कभी भी START भेजें।"),
+    },
+    "opted_in": {
+        "en": "🔔 Welcome back! WhatsApp alerts are on again.",
+        "hi": "🔔 वापसी पर स्वागत है! WhatsApp अलर्ट फिर से चालू हैं।",
+    },
 }
 
 # Web SPA UI strings.

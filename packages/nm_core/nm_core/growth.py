@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from nm_core import messaging
 from nm_core.config import get_settings
+from nm_core.consent import is_opted_out
 from nm_core.db.models.user import User
 
 _NUDGE = (
@@ -31,6 +32,8 @@ def reengage_dormant(session: Session, *, now: datetime | None = None) -> int:
     for user in users:
         if user.phone is None or user.last_login_at is None:
             continue
+        if is_opted_out(user):
+            continue  # respect DPDP opt-out — no proactive re-engagement
         if _aware(user.last_login_at) >= cutoff:
             continue
         if user.re_engaged_at is not None and _aware(user.re_engaged_at) >= cutoff:

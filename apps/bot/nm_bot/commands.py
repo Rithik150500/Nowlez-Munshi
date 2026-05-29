@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from nm_core import ai, identity, tracking
+from nm_core import ai, consent, identity, tracking
 from nm_core.ai.types import Answer
 from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.config import get_settings
@@ -68,6 +68,17 @@ def handle_message(
     raw = (button_payload or text or "").strip()
     if not raw:
         return _help_for(user)
+
+    # DPDP consent: a bare STOP/START opts out of / back into proactive WhatsApp.
+    # The reply (confirmation) is enqueued by the webhook handler *before* the
+    # session commits, so a crash can't leave the user opted-out with no confirmation.
+    if not raw.startswith("/"):
+        if consent.is_stop_keyword(raw):
+            consent.set_opt_out(session, user=user, opted_out=True, keyword=raw[:32])
+            return t("opted_out", user.locale)
+        if consent.is_start_keyword(raw) and consent.is_opted_out(user):
+            consent.set_opt_out(session, user=user, opted_out=False, keyword=raw[:32])
+            return t("opted_in", user.locale)
 
     upper = raw.upper()
     if CNR_REGEX.match(upper):
