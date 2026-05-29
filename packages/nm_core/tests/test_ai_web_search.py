@@ -76,3 +76,34 @@ def test_no_web_search_without_key(db_session, monkeypatch):
     user, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000303")
     answer = ask(db_session, user=user, question="search the web for latest news")
     assert answer.web_sources == []  # tool disabled → falls through to case-book agent
+
+
+EXTRACT_URL = "https://api.tavily.com/extract"
+
+
+def test_fetch_url_tool_gated_on_key(monkeypatch):
+    monkeypatch.setattr(get_settings(), "TAVILY_API_KEY", "")
+    assert all(d["name"] != "fetch_url" for d in tool_declarations())
+    monkeypatch.setattr(get_settings(), "TAVILY_API_KEY", "tvly-x")
+    assert any(d["name"] == "fetch_url" for d in tool_declarations())
+
+
+def test_fetch_url_rejects_bad_scheme(monkeypatch):
+    monkeypatch.setattr(get_settings(), "TAVILY_API_KEY", "tvly-x")
+    out = tavily.extract(["ftp://x.test/doc"])
+    assert "error" in out and out["results"] == []
+
+
+@respx.mock
+def test_fetch_url_extracts_and_tracks_sources(db_session, monkeypatch):
+    monkeypatch.setattr(get_settings(), "TAVILY_API_KEY", "tvly-x")
+    respx.post(EXTRACT_URL).mock(return_value=httpx.Response(200, json={
+        "results": [{"url": "https://ik.test/j1", "raw_content": "# Judgment\nfull text"}],
+        "failed_results": [{"url": "https://ik.test/bad", "error": "404"}],
+    }))
+    user, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000311")
+    ctx = ToolContext(db_session, user)
+    out = ctx.execute("fetch_url", {"url": "https://ik.test/j1, https://ik.test/bad"})
+    assert out["results"][0]["content"].startswith("# Judgment")
+    assert out["failed"][0]["url"] == "https://ik.test/bad"
+    assert ctx.web_sources == [{"title": "https://ik.test/j1", "url": "https://ik.test/j1"}]

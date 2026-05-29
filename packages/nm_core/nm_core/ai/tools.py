@@ -58,12 +58,28 @@ _DRAFTING_DECLARATIONS = [
 ]
 
 
+_FETCH_URL_DECLARATION = {
+    "name": "fetch_url",
+    "description": (
+        "Read the full content of one or more web pages by URL (e.g. a full judgment "
+        "on Indian Kanoon) when search snippets aren't enough. Accepts a single URL or "
+        "a comma-separated list."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {"url": {"type": "string", "description": "URL or comma-separated URLs"}},
+        "required": ["url"],
+    },
+}
+
+
 def tool_declarations() -> list[dict]:
-    """The active tool surface — search_web and the drafting tools appear only when
-    their backing service (Tavily / a Node runtime) is configured."""
+    """The active tool surface — search_web/fetch_url and the drafting tools appear only
+    when their backing service (Tavily / a Node runtime) is configured."""
     decls = list(_CASE_BOOK_DECLARATIONS)
     if tavily.is_available():
         decls.append(_SEARCH_WEB_DECLARATION)
+        decls.append(_FETCH_URL_DECLARATION)
     if drafting.is_available():
         decls.extend(_DRAFTING_DECLARATIONS)
     return decls
@@ -161,6 +177,8 @@ class ToolContext:
             return self._get_document_text(str(args.get("title", "")))
         if name == "search_web":
             return self._search_web(str(args.get("query", "")))
+        if name == "fetch_url":
+            return self._fetch_url(str(args.get("url", "")))
         if name == "read_docx_reference":
             return {"content": drafting.read_reference(), "templates": drafting.list_templates()}
         if name == "read_docx_template":
@@ -189,6 +207,16 @@ class ToolContext:
             if r.get("url"):
                 self.web_sources.append({"title": r["title"], "url": r["url"]})
         return {"results": results}
+
+    def _fetch_url(self, url_input: str) -> dict:
+        urls = [u.strip() for u in url_input.split(",") if u.strip()]
+        if not urls:
+            return {"error": "url is required"}
+        out = tavily.extract(urls)
+        for r in out.get("results", []):  # track fetched pages as web sources
+            if r.get("url"):
+                self.web_sources.append({"title": r["url"], "url": r["url"]})
+        return out
 
     def _list_documents(self) -> dict:
         from nm_core.documents import DocumentRepository
