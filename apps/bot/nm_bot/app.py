@@ -48,7 +48,13 @@ async def inbound(request: Request) -> Response:
 
 
 def _process(msg: messaging.IncomingMessage) -> None:
-    """Resolve, dedup, route, and reply — each message in its own transaction."""
+    """Claim, route, and reply in ONE transaction.
+
+    If the reply send fails (e.g. a transient Meta error propagates), the whole
+    transaction — including the inbound claim — rolls back, so Meta's webhook retry
+    reprocesses the message instead of the reply being silently lost. Reprocessing is
+    idempotent (find-or-create user, upsert case).
+    """
     try:
         with session_scope() as session:
             if not messaging.claim_inbound(session, meta_message_id=msg.meta_message_id):
@@ -56,7 +62,6 @@ def _process(msg: messaging.IncomingMessage) -> None:
             reply = handle_message(
                 session, from_phone=msg.from_phone, text=msg.text, button_payload=msg.button_payload
             )
-        with session_scope() as session:
             messaging.send_text(session, to_phone=msg.from_phone, body=reply)
     except Exception:  # noqa: BLE001 — never 500 the webhook; Meta would retry-storm
         logger.exception("failed to process inbound %s", msg.meta_message_id)

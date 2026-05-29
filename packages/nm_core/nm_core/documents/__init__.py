@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from nm_core import ai, ecourts
 from nm_core.db.models.case import CaseOrder
 from nm_core.storage import get_storage
+
+logger = logging.getLogger("nm_core.documents")
 
 
 def extract_text(pdf: bytes) -> str:
@@ -55,20 +58,28 @@ def list_unprocessed(session: Session, *, limit: int = 50) -> list[CaseOrder]:
     )
 
 
+def _try_process(session: Session, order_id: uuid.UUID) -> bool:
+    """Process one order, swallowing transient fetch/parse failures.
+
+    On failure file_path stays NULL, so the order is retried next sweep instead of
+    being stranded with a bad summary.
+    """
+    try:
+        process_order(session, order_id=order_id)
+        return True
+    except Exception:  # noqa: BLE001 — one bad/transient order must not abort the batch
+        logger.warning("order processing failed for %s", order_id, exc_info=True)
+        return False
+
+
 def process_for_case(session: Session, *, case_id: uuid.UUID) -> int:
     rows = session.execute(
         select(CaseOrder).where(CaseOrder.case_id == case_id, CaseOrder.file_path.is_(None))
     ).scalars()
-    n = 0
-    for order in rows:
-        process_order(session, order_id=order.id)
-        n += 1
-    return n
+    return sum(_try_process(session, order.id) for order in list(rows))
 
 
 def process_pending(session: Session, *, limit: int = 50) -> int:
-    n = 0
-    for order in list_unprocessed(session, limit=limit):
-        process_order(session, order_id=order.id)
-        n += 1
-    return n
+    return sum(
+        _try_process(session, order.id) for order in list_unprocessed(session, limit=limit)
+    )

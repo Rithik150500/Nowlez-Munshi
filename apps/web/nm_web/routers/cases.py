@@ -86,6 +86,8 @@ def refresh_case(
     cnr: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> dict:
     repo = CaseRepository(db)
+    # Refresh syncs under this user, so it is owner-scoped (a shared case is refreshed
+    # by its owner / the worker, not forked by a co-member).
     if repo.get_by_cnr(user.id, cnr.upper()) is None:
         raise HTTPException(status_code=404, detail="case not found")
     try:
@@ -118,6 +120,9 @@ def set_prefs(
     valid = {"all", "orders_only", "hearings_only", "digest_only"}
     if body.alert_level is not None and body.alert_level not in valid:
         raise HTTPException(status_code=422, detail="invalid alert_level")
+    # Don't create preference rows for cases the user can't see.
+    if CaseRepository(db).get_visible(accessible_user_ids(db, user), cnr.upper()) is None:
+        raise HTTPException(status_code=404, detail="case not found")
     snooze_until = (
         datetime.now(UTC) + timedelta(days=body.snooze_days)
         if body.snooze_days

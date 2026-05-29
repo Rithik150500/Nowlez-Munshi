@@ -46,7 +46,7 @@ def _user_with_case(db_session, *, with_case=True):
 # --- tools ---
 def test_tools_get_case_and_cite(db_session):
     user = _user_with_case(db_session)
-    ctx = ToolContext(db_session, user.id)
+    ctx = ToolContext(db_session, user)
     out = ctx.execute("get_case", {"cnr": CNR})
     assert out["title"] == "Alice vs State"
     assert ctx.cited == {CNR: "Alice vs State"}
@@ -55,7 +55,7 @@ def test_tools_get_case_and_cite(db_session):
 
 def test_tools_unknown_case(db_session):
     user = _user_with_case(db_session, with_case=False)
-    assert "error" in ToolContext(db_session, user.id).execute("get_case", {"cnr": CNR})
+    assert "error" in ToolContext(db_session, user).execute("get_case", {"cnr": CNR})
 
 
 # --- offline agent via ask ---
@@ -85,6 +85,22 @@ def test_ask_empty_book(db_session):
     user = _user_with_case(db_session, with_case=False)
     ans = ask(db_session, user=user, question="anything?")
     assert "no cases" in ans.text.lower()
+
+
+def test_ask_sees_co_member_shared_case(db_session):
+    from nm_core.identity.repositories import UserRepository
+    from nm_core.teams import AccountRepository
+
+    owner = _user_with_case(db_session)  # owns CNR
+    junior, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000079", name="Jr")
+    accounts = AccountRepository(db_session)
+    chamber = accounts.create_account(owner_user_id=owner.id, name="Chamber")
+    accounts.add_member(account_id=chamber.id, user_id=junior.id, role="editor")
+
+    # Junior (who doesn't own the case) can ask about the chamber's shared case.
+    ans = ask(db_session, user=junior, question=f"status of {CNR}?")
+    assert "Arguments" in ans.text
+    assert [c.cnr for c in ans.citations] == [CNR]
 
 
 # --- threaded persistence ---

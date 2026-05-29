@@ -5,8 +5,6 @@ Both the Gemini agent and the deterministic offline agent execute through this s
 """
 from __future__ import annotations
 
-import uuid
-
 from sqlalchemy.orm import Session
 
 from nm_core.cases import CaseRepository
@@ -49,11 +47,18 @@ TOOL_DECLARATIONS = [
 
 
 class ToolContext:
-    """Per-request tool executor. Tracks which cases were touched (for citations)."""
+    """Per-request tool executor over the user's team-visible case book.
 
-    def __init__(self, session: Session, user_id: uuid.UUID) -> None:
+    Scoped to the chamber's shared cases (own + co-members'), consistent with the web
+    case book. Tracks which cases were touched (for citations).
+    """
+
+    def __init__(self, session: Session, user) -> None:
+        from nm_core.teams import accessible_user_ids
+
         self.repo = CaseRepository(session)
-        self.user_id = user_id
+        self.user_id = user.id
+        self.visible = accessible_user_ids(session, user)
         self.cited: dict[str, str] = {}  # cnr -> title
         self.calls: list[dict] = []  # {name, args} executed, for the answer record
 
@@ -73,7 +78,7 @@ class ToolContext:
         return {"error": f"unknown tool {name}"}
 
     def _list_cases(self) -> dict:
-        cases = self.repo.list_by_user(self.user_id)
+        cases = self.repo.list_visible(self.visible)
         return {
             "cases": [
                 {
@@ -90,7 +95,7 @@ class ToolContext:
         }
 
     def _get_case(self, cnr: str) -> dict:
-        case = self.repo.get_by_cnr(self.user_id, cnr)
+        case = self.repo.get_visible(self.visible, cnr, prefer=self.user_id)
         if case is None:
             return {"error": f"no tracked case {cnr}"}
         self._cite(case)
@@ -109,7 +114,7 @@ class ToolContext:
         }
 
     def _get_orders(self, cnr: str) -> dict:
-        case = self.repo.get_by_cnr(self.user_id, cnr)
+        case = self.repo.get_visible(self.visible, cnr, prefer=self.user_id)
         if case is None:
             return {"error": f"no tracked case {cnr}"}
         self._cite(case)
@@ -128,7 +133,7 @@ class ToolContext:
         }
 
     def _get_order_text(self, cnr: str) -> dict:
-        case = self.repo.get_by_cnr(self.user_id, cnr)
+        case = self.repo.get_visible(self.visible, cnr, prefer=self.user_id)
         if case is None:
             return {"error": f"no tracked case {cnr}"}
         self._cite(case)

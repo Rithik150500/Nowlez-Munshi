@@ -63,7 +63,7 @@ def test_process_order_stores_and_summarizes(db_session):
 def test_get_order_text_tool(db_session):
     user, case = _seed(db_session)
     documents.process_for_case(db_session, case_id=case.id)
-    ctx = ToolContext(db_session, user.id)
+    ctx = ToolContext(db_session, user)
     out = ctx.execute("get_order_text", {"cnr": CNR})
     assert out["orders"][0]["summary"]
     assert ctx.cited == {CNR: "A vs B"}
