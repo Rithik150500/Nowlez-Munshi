@@ -116,6 +116,39 @@ class BenchRef:
 
 
 @dataclass(frozen=True)
+class HCBenchSitting:
+    """A bench listed as sitting on a given date (causeListBenchWebService.php)."""
+    code: str
+    name: str
+    state_code: str
+    sitting_date: date
+
+
+@dataclass(frozen=True)
+class HCCauseListIndex:
+    """A row of the HC cause-list index — points to a downloadable PDF."""
+    sr_no: int
+    bench: str
+    list_type: str
+    pdf_url: str
+
+
+@dataclass(frozen=True)
+class HCCauseListPDFRow:
+    """A best-effort case row extracted from an HC cause-list PDF.
+
+    ``raw_text`` is the reliable ground truth (full text bundle); ``case_number`` is
+    a best-effort column split. ``cnr`` is filled later by back-resolution (HC PDFs
+    print the case number, never the CNR)."""
+    sr_no: int
+    section: str
+    case_number: str
+    raw_text: str
+    parties: str = ""
+    advocates: str = ""
+
+
+@dataclass(frozen=True)
 class CauseListEntry:
     sr_no: int
     case_number: str

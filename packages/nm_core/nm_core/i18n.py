@@ -20,7 +20,10 @@ _BOT: dict[str, dict[str, str]] = {
             "• /snooze <CNR> <days> — pause alerts\n"
             "• /alerts <CNR> <all|orders_only|hearings_only|digest_only>\n"
             "• /digest_on, /digest_off\n"
-            "• /search — find a case by party / number on the web\n"
+            "• /label <CNR> <text> — name a case\n"
+            "• /portfolio — your case book at a glance\n"
+            "• /refresh — check all your cases now\n"
+            "• /search — guided case search by party name\n"
             "• send a *case QR photo* to track it\n"
             "• /web — open your case book on the web"
         ),
@@ -47,6 +50,36 @@ _BOT: dict[str, dict[str, str]] = {
     },
     "unknown_cmd": {"en": "Unknown command {cmd}. Send /help.",
                     "hi": "अज्ञात कमांड {cmd}। /help भेजें।"},
+    "opted_out": {
+        "en": ("🔕 You've been opted out of WhatsApp alerts. You won't get proactive "
+               "messages from Nowlez Munshi. Reply START anytime to turn them back on."),
+        "hi": ("🔕 आपने WhatsApp अलर्ट बंद कर दिए हैं। अब Nowlez Munshi से सूचनाएँ नहीं आएँगी। "
+               "फिर से चालू करने के लिए कभी भी START भेजें।"),
+    },
+    "opted_in": {
+        "en": "🔔 Welcome back! WhatsApp alerts are on again.",
+        "hi": "🔔 वापसी पर स्वागत है! WhatsApp अलर्ट फिर से चालू हैं।",
+    },
+    # Onboarding: bilingual welcome (shown above the language-picker buttons,
+    # before the user has chosen a language).
+    "welcome": {
+        "en": ("🧑‍⚖️ Welcome to *Nowlez Munshi* — your case clerk on WhatsApp.\n"
+               "नमस्ते! Choose your language / अपनी भाषा चुनें:"),
+        "hi": ("🧑‍⚖️ *Nowlez Munshi* में आपका स्वागत है — WhatsApp पर आपका केस मुंशी।\n"
+               "Choose your language / अपनी भाषा चुनें:"),
+    },
+    "onboard_done": {
+        "en": ("Great — you're all set! 🎉\n\n"
+               "Here's what a tracked case looks like:\n\n"
+               "*Sample v. State*\nDLND010000012024\nDistrict Court, Delhi\n"
+               "Next hearing: 12 Jun 2026\n\n"
+               "📩 Now send me a *CNR* (16 characters) to track your first case."),
+        "hi": ("बढ़िया — सब तैयार है! 🎉\n\n"
+               "एक ट्रैक किया गया केस ऐसा दिखता है:\n\n"
+               "*Sample v. State*\nDLND010000012024\nजिला न्यायालय, दिल्ली\n"
+               "अगली सुनवाई: 12 जून 2026\n\n"
+               "📩 अब अपना पहला केस ट्रैक करने के लिए *CNR* (16 अक्षर) भेजें।"),
+    },
 }
 
 # Web SPA UI strings.

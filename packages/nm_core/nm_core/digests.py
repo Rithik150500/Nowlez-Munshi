@@ -15,8 +15,11 @@ from sqlalchemy.orm import Session
 
 from nm_core import email, messaging
 from nm_core.cases import CasePreferenceRepository
+from nm_core.consent import is_opted_out
 from nm_core.db.models.case import Case
+from nm_core.db.models.cause_list import CauseListRow
 from nm_core.db.models.user import User
+from nm_core.holidays import is_court_holiday
 
 TOMORROW_TEMPLATE = "nowlez_tomorrow_hearings_v1"
 
@@ -35,23 +38,44 @@ def _wanted(pref, now: datetime) -> bool:
     return True
 
 
-def _hearings_on(session: Session, day: date) -> dict[uuid.UUID, list[Case]]:
-    rows = session.execute(
-        select(Case).where(Case.next_hearing_date == day)
-    ).scalars()
+def _listed_on(session: Session, day: date) -> dict[uuid.UUID, list[Case]]:
+    """Cases listed on ``day`` per user: the snapshot (Case.next_hearing_date) UNION
+    the indexed HC cause-list rows back-resolved to a tracked case, deduped per CNR.
+
+    The union catches the case where NIC publishes the cause-list PDF before the
+    monitoring poll updates the case's snapshot next_hearing_date."""
     grouped: dict[uuid.UUID, list[Case]] = defaultdict(list)
-    for case in rows:
+    for case in session.execute(select(Case).where(Case.next_hearing_date == day)).scalars():
         grouped[case.user_id].append(case)
+
+    indexed_cnrs = {
+        c for c in session.execute(
+            select(CauseListRow.cnr).where(
+                CauseListRow.list_date == day, CauseListRow.cnr.is_not(None)
+            )
+        ).scalars()
+    }
+    if indexed_cnrs:
+        for case in session.execute(
+            select(Case).where(Case.cnr.in_(indexed_cnrs))
+        ).scalars():
+            seen = {c.cnr for c in grouped[case.user_id]}
+            if case.cnr not in seen:
+                grouped[case.user_id].append(case)
     return grouped
 
 
-def send_tomorrow_digests(session: Session, *, today: date | None = None) -> int:
+def send_tomorrow_digests(
+    session: Session, *, today: date | None = None, skip_holidays: bool = True
+) -> int:
     """Enqueue + email each user's digest of cases listed tomorrow. Returns count sent."""
     now = datetime.now(UTC)
     tomorrow = (today or now.date()) + timedelta(days=1)
+    if skip_holidays and is_court_holiday(tomorrow):
+        return 0  # no sittings on a court holiday
     prefs_repo = CasePreferenceRepository(session)
     sent = 0
-    for user_id, cases in _hearings_on(session, tomorrow).items():
+    for user_id, cases in _listed_on(session, tomorrow).items():
         user = session.get(User, user_id)
         if user is None:
             continue
@@ -60,7 +84,7 @@ def send_tomorrow_digests(session: Session, *, today: date | None = None) -> int
         if not listed:
             continue
         summary = "; ".join(f"{c.title or c.cnr} ({c.cnr})" for c in listed)
-        if user.phone:
+        if user.phone and not is_opted_out(user):
             messaging.enqueue_send_daily_template(
                 session,
                 user_id=user.id,

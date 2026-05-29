@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 
 from nm_core.db.engine import session_scope
-from nm_core.messaging.send import _deliver_template, _deliver_text
+from nm_core.messaging.send import _deliver_document, _deliver_template, _deliver_text
 
 
 def do_send_text(
@@ -38,4 +38,21 @@ def do_send_template(
             template_name=template_name,
             language=language,
             body_variables=body_variables,
+        )
+
+
+def do_send_document(
+    *,
+    to_phone: str,
+    storage_key: str,
+    filename: str,
+    caption: str | None = None,
+    user_id: str | None = None,
+    dedup_key: str | None = None,
+) -> str | None:
+    uid = uuid.UUID(user_id) if user_id else None
+    with session_scope() as session:
+        return _deliver_document(
+            session, to_phone=to_phone, storage_key=storage_key, filename=filename,
+            caption=caption, user_id=uid, dedup_key=dedup_key,
         )

@@ -10,7 +10,8 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from nm_core import ai, identity, tracking
+from nm_bot import search_flow
+from nm_core import ai, consent, identity, messaging, tracking
 from nm_core.ai.types import Answer
 from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.config import get_settings
@@ -18,6 +19,7 @@ from nm_core.ecourts.errors import CNRNotFound, ECourtsError
 from nm_core.ecourts.routing import CNR_REGEX
 from nm_core.i18n import t
 from nm_core.identity.repositories import UserRepository
+from nm_core.messaging.redis_dedup import claim_send_dedup
 
 
 def _help_for(user) -> str:
@@ -57,6 +59,47 @@ def _web_link(user, next_path: str = "/") -> str | None:
     return f"{base.rstrip('/')}/link#token={token}&next={next_path}"
 
 
+_ONBOARD_LANG_PREFIX = "onboard:lang:"
+_GREETINGS = frozenset({
+    "hi", "hii", "hey", "hello", "helo", "yo", "start", "namaste",
+    "नमस्ते", "नमस्कार", "हाय", "हेलो",
+})
+
+
+def _is_greeting(raw: str) -> bool:
+    return raw.split()[0].strip(".,!?;:'\"()[]।").lower() in _GREETINGS
+
+
+def _send_welcome(session: Session, user) -> str:
+    """Send the bilingual welcome + a language-picker (interactive buttons) inline.
+
+    Returns "" so the webhook handler enqueues nothing more — the interactive
+    message can't be expressed as the plain-text reply string.
+    """
+    messaging.send_interactive_buttons(
+        session,
+        to_phone=user.phone,
+        user_id=user.id,
+        body=t("welcome", user.locale),
+        buttons=[
+            {"id": f"{_ONBOARD_LANG_PREFIX}en", "title": "English"},
+            {"id": f"{_ONBOARD_LANG_PREFIX}hi", "title": "हिंदी"},
+        ],
+    )
+    return ""
+
+
+def _complete_onboarding(session: Session, user, locale: str) -> str:
+    """Persist the chosen language, mark onboarded, and reply with a demo + prompt."""
+    from nm_core.i18n import SUPPORTED
+
+    user.locale = locale if locale in SUPPORTED else "en"
+    user.onboarded_at = datetime.now(UTC)
+    user.re_engaged_at = None  # a fresh start resets the re-engagement clock
+    session.flush()
+    return t("onboard_done", user.locale)
+
+
 def handle_message(
     session: Session, *, from_phone: str, text: str | None, button_payload: str | None = None
 ) -> str:
@@ -69,31 +112,49 @@ def handle_message(
     if not raw:
         return _help_for(user)
 
+    # DPDP consent: a bare STOP/START opts out of / back into proactive WhatsApp.
+    # The reply (confirmation) is enqueued by the webhook handler *before* the
+    # session commits, so a crash can't leave the user opted-out with no confirmation.
+    if not raw.startswith("/"):
+        if consent.is_stop_keyword(raw):
+            consent.set_opt_out(session, user=user, opted_out=True, keyword=raw[:32])
+            return t("opted_out", user.locale)
+        if consent.is_start_keyword(raw) and consent.is_opted_out(user):
+            consent.set_opt_out(session, user=user, opted_out=False, keyword=raw[:32])
+            return t("opted_in", user.locale)
+
+    # Onboarding: language-picker button callback completes onboarding.
+    if button_payload and button_payload.startswith(_ONBOARD_LANG_PREFIX):
+        return _complete_onboarding(session, user, button_payload[len(_ONBOARD_LANG_PREFIX):])
+
+    # Guided search: list-picker callbacks, and the free-text party-name step.
+    if search_flow.is_search_button(button_payload):
+        return search_flow.handle_button(session, user, button_payload)
+
     upper = raw.upper()
     if CNR_REGEX.match(upper):
         return _track(session, user, upper)
 
     if not raw.startswith("/"):
+        if search_flow.has_pending_text_step(user):
+            return search_flow.handle_text_step(session, user, raw)
+        if _is_greeting(raw):  # first-touch greeting → show the welcome + language picker
+            return _send_welcome(session, user)
         return _format_answer(ai.ask(session, user=user, question=raw, channel="whatsapp"))
 
     parts = raw.split()
     cmd = parts[0].lower()
     args = parts[1:]
 
-    if cmd in ("/start", "/help"):
+    if cmd == "/start":
+        return _send_welcome(session, user)
+    if cmd == "/help":
         return _help_for(user)
     if cmd == "/web":
         link = _web_link(user)
         return f"📱 Open Nowlez Munshi on the web:\n{link}" if link else "Web app isn't configured."
     if cmd == "/search":
-        # Structured search needs court pickers — hand off to the web search screen.
-        link = _web_link(user, next_path="/search")
-        if not link:
-            return "Search needs the web app, which isn't configured."
-        return (
-            "🔎 Search by party name or case number needs court selection. "
-            f"Open search on web:\n{link}"
-        )
+        return search_flow.start(session, user)
     if cmd == "/saved":
         return _list(cases.list_by_user(user.id), empty=t("no_cases", user.locale))
     if cmd == "/today":
@@ -111,6 +172,12 @@ def handle_message(
         return _digest(prefs, cases, user.id, True)
     if cmd == "/digest_off":
         return _digest(prefs, cases, user.id, False)
+    if cmd == "/label":
+        return _label(cases, session, user.id, args)
+    if cmd == "/portfolio":
+        return _portfolio(cases, user.id)
+    if cmd == "/refresh":
+        return _refresh_all(session, cases, user)
     return t("unknown_cmd", user.locale, cmd=cmd)
 
 
@@ -146,6 +213,57 @@ def _forget(cases, user_id, args) -> str:
         return "Usage: /forget <CNR>"
     cnr = args[0].upper()
     return f"🗑️ Stopped tracking {cnr}." if cases.delete(user_id, cnr) else f"{cnr} wasn't tracked."
+
+
+def _label(cases, session: Session, user_id, args) -> str:
+    """/label <CNR> <text> — set a friendly per-case label (stored in notes)."""
+    if len(args) < 2:
+        return "Usage: /label <CNR> <label text>"
+    cnr = args[0].upper()
+    case = cases.get_by_cnr(user_id, cnr)
+    if case is None:
+        return f"{cnr} isn't tracked. Send the CNR first to track it."
+    case.notes = " ".join(args[1:])[:200]
+    session.flush()
+    return f"🏷️ Labelled {cnr}: {case.notes}"
+
+
+def _portfolio(cases, user_id) -> str:
+    """/portfolio — a one-glance summary of the user's case book."""
+    rows = cases.list_by_user(user_id)
+    if not rows:
+        return "No cases yet. Send a CNR to start tracking."
+    today = date.today()
+    disposed = sum(1 for c in rows if c.stage and "dispos" in c.stage.lower())
+    upcoming = sorted(
+        (c for c in rows if c.next_hearing_date and c.next_hearing_date >= today),
+        key=lambda c: c.next_hearing_date,
+    )
+    lines = [
+        f"📁 *Your portfolio* — {len(rows)} case(s)",
+        f"• Active: {len(rows) - disposed}   • Disposed: {disposed}",
+    ]
+    if upcoming:
+        nxt = upcoming[0]
+        lines.append(f"• Next hearing: {nxt.next_hearing_date} — {nxt.title or nxt.cnr}")
+    return "\n".join(lines)
+
+
+def _refresh_all(session: Session, cases, user) -> str:
+    """/refresh — force-refresh the user's tracked cases (rate-limited 1 / 15 min)."""
+    if not claim_send_dedup(f"refresh_cmd:{user.id}", ttl_seconds=900):
+        return "⏳ You refreshed recently — try again in a few minutes."
+    rows = cases.list_by_user(user.id, limit=25)
+    if not rows:
+        return "No cases to refresh."
+    changed = 0
+    for c in rows:
+        try:
+            if tracking.refresh_case(session, user=user, cnr=c.cnr).changes:
+                changed += 1
+        except Exception:  # noqa: BLE001 — one bad case must not abort the batch
+            continue
+    return f"🔄 Refreshed {len(rows)} case(s); {changed} had updates."
 
 
 def _snooze(prefs, user_id, args) -> str:

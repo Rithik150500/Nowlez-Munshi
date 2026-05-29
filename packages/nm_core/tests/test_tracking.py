@@ -60,4 +60,4 @@ def test_refresh_sweep_counts(db_session):
     track_case(db_session, user=user, cnr=CNR)
     register_offline_case(CNR, _case(court="Court Y"))  # transfer
     counts = run_refresh_sweep(db_session, limit=10)
-    assert counts == {"refreshed": 1, "changed": 1, "errored": 0, "due": 1}
+    assert counts == {"refreshed": 1, "changed": 1, "errored": 0, "skipped": 0, "due": 1}

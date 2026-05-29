@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from nm_core import messaging, push
 from nm_core.cases.changes import Change
+from nm_core.consent import is_opted_out
 from nm_core.db.models.case import Case, CasePreference
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
@@ -37,7 +38,9 @@ _ALERT_LEVEL_ALLOWS = {
 
 def _realtime_allowed(change: Change, pref: CasePreference | None) -> bool:
     level = pref.alert_level if pref else "all"
-    if change.type not in _ALERT_LEVEL_ALLOWS.get(level, set()):
+    # Urgent changes (e.g. an imminent hearing) bypass the alert-level gate so even
+    # digest_only / hearings_only users get them in real time. Snooze is still honored.
+    if not change.urgent and change.type not in _ALERT_LEVEL_ALLOWS.get(level, set()):
         return False
     if pref and pref.snooze_until is not None:
         snooze = pref.snooze_until
@@ -62,7 +65,7 @@ def dispatch_change(
     body = change.summary
 
     if _realtime_allowed(change, pref):
-        if user.phone:
+        if user.phone and not is_opted_out(user):
             today = datetime.now(UTC).date().isoformat()
             if messaging.enqueue_send_text(
                 to_phone=user.phone,

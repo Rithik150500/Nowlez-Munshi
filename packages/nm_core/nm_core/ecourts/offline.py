@@ -13,9 +13,13 @@ from nm_core.ecourts.models import (
     CaseStub,
     CourtComplexRef,
     DistrictRef,
+    HCBenchSitting,
+    HCCauseListIndex,
+    HCCauseListPDFRow,
     HearingHistoryRow,
     OrderRef,
     Party,
+    PoliceStationRef,
     StateRef,
 )
 from nm_core.ecourts.routing import classify_cnr, validate_cnr_shape
@@ -94,6 +98,45 @@ def offline_search_party(*, party_name: str, year: int) -> list[CaseStub]:
             filing_year=year, stage="Appearance",
         )
         for i in range(1, 3)
+    ]
+
+
+def offline_list_police_stations(
+    *, state_code: str, district_code: str, court_code: str
+) -> list[PoliceStationRef]:
+    return [
+        PoliceStationRef(code="1", name="Demo Police Station",
+                         district_code=str(district_code), court_code=str(court_code)),
+    ]
+
+
+def offline_search_by_fir(*, fir_number: str, year: int) -> list[CaseStub]:
+    digits = int(fir_number) if fir_number.isdigit() else 1
+    return [
+        CaseStub(
+            cnr=f"DLND01{digits:06d}{year}", title="State vs Accused",
+            case_number=f"FIR/{fir_number}/{year}", court="Demo District Court",
+            filing_year=year, stage="Appearance",
+        )
+    ]
+
+
+def offline_hc_bench_sittings(*, state_code: str, sitting_date: date) -> list[HCBenchSitting]:
+    return [HCBenchSitting(code="B1", name="Demo Bench", state_code=str(state_code),
+                           sitting_date=sitting_date)]
+
+
+def offline_hc_cause_list_index(*, bench_id: str) -> list[HCCauseListIndex]:
+    return [HCCauseListIndex(sr_no=1, bench=str(bench_id), list_type="Daily",
+                            pdf_url=f"/cause_list/{bench_id}.pdf")]
+
+
+def offline_hc_cause_list_pdf_rows(*, pdf_url: str) -> list[HCCauseListPDFRow]:
+    return [
+        HCCauseListPDFRow(sr_no=1, section="ADMISSION", case_number="WP/100/2026",
+                          raw_text="1 WP/100/2026 Petitioner vs State"),
+        HCCauseListPDFRow(sr_no=2, section="ADMISSION", case_number="WP/200/2026",
+                          raw_text="2 WP/200/2026 Another vs State"),
     ]
 
 

@@ -34,6 +34,12 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     re_engaged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when the user opts out of proactive WhatsApp via an inbound STOP keyword
+    # (DPDP consent). Null = opted in. Suppresses all *proactive* sends (alerts,
+    # digests, re-engagement); inbound service replies are unaffected.
+    whatsapp_opted_out_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
