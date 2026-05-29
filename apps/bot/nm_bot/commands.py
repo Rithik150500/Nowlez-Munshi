@@ -18,6 +18,7 @@ from nm_core.ecourts.errors import CNRNotFound, ECourtsError
 from nm_core.ecourts.routing import CNR_REGEX
 from nm_core.i18n import t
 from nm_core.identity.repositories import UserRepository
+from nm_core.messaging.redis_dedup import claim_send_dedup
 
 
 def _help_for(user) -> str:
@@ -171,6 +172,12 @@ def handle_message(
         return _digest(prefs, cases, user.id, True)
     if cmd == "/digest_off":
         return _digest(prefs, cases, user.id, False)
+    if cmd == "/label":
+        return _label(cases, session, user.id, args)
+    if cmd == "/portfolio":
+        return _portfolio(cases, user.id)
+    if cmd == "/refresh":
+        return _refresh_all(session, cases, user)
     return t("unknown_cmd", user.locale, cmd=cmd)
 
 
@@ -206,6 +213,57 @@ def _forget(cases, user_id, args) -> str:
         return "Usage: /forget <CNR>"
     cnr = args[0].upper()
     return f"🗑️ Stopped tracking {cnr}." if cases.delete(user_id, cnr) else f"{cnr} wasn't tracked."
+
+
+def _label(cases, session: Session, user_id, args) -> str:
+    """/label <CNR> <text> — set a friendly per-case label (stored in notes)."""
+    if len(args) < 2:
+        return "Usage: /label <CNR> <label text>"
+    cnr = args[0].upper()
+    case = cases.get_by_cnr(user_id, cnr)
+    if case is None:
+        return f"{cnr} isn't tracked. Send the CNR first to track it."
+    case.notes = " ".join(args[1:])[:200]
+    session.flush()
+    return f"🏷️ Labelled {cnr}: {case.notes}"
+
+
+def _portfolio(cases, user_id) -> str:
+    """/portfolio — a one-glance summary of the user's case book."""
+    rows = cases.list_by_user(user_id)
+    if not rows:
+        return "No cases yet. Send a CNR to start tracking."
+    today = date.today()
+    disposed = sum(1 for c in rows if c.stage and "dispos" in c.stage.lower())
+    upcoming = sorted(
+        (c for c in rows if c.next_hearing_date and c.next_hearing_date >= today),
+        key=lambda c: c.next_hearing_date,
+    )
+    lines = [
+        f"📁 *Your portfolio* — {len(rows)} case(s)",
+        f"• Active: {len(rows) - disposed}   • Disposed: {disposed}",
+    ]
+    if upcoming:
+        nxt = upcoming[0]
+        lines.append(f"• Next hearing: {nxt.next_hearing_date} — {nxt.title or nxt.cnr}")
+    return "\n".join(lines)
+
+
+def _refresh_all(session: Session, cases, user) -> str:
+    """/refresh — force-refresh the user's tracked cases (rate-limited 1 / 15 min)."""
+    if not claim_send_dedup(f"refresh_cmd:{user.id}", ttl_seconds=900):
+        return "⏳ You refreshed recently — try again in a few minutes."
+    rows = cases.list_by_user(user.id, limit=25)
+    if not rows:
+        return "No cases to refresh."
+    changed = 0
+    for c in rows:
+        try:
+            if tracking.refresh_case(session, user=user, cnr=c.cnr).changes:
+                changed += 1
+        except Exception:  # noqa: BLE001 — one bad case must not abort the batch
+            continue
+    return f"🔄 Refreshed {len(rows)} case(s); {changed} had updates."
 
 
 def _snooze(prefs, user_id, args) -> str:
