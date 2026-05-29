@@ -68,7 +68,7 @@
 | **M2 — Both doors + alerts** | ecourts, cases + change classifier, messaging, notifications; worker (refresh sweep), bot (WhatsApp commands), web (REST API + React SPA), unified alerts → **Bet 3** | ✅ done |
 | **M3 — AI Munshi everywhere** | agentic (function-calling) Q&A + threads on web **and** WhatsApp, citations, offline agent, parity test → **Bet 1** | ✅ done |
 | **M4 — Continuity + full practice ops** | deep-link handoff (**Bet 2**), teams/RBAC, calendar+analytics, documents (PDF summaries + OnlyOffice DOCX), growth (onboarding/bilingual/re-engagement/email), billing scaffolding, voice, admin | ✅ done |
-| **M5 — Harden + go-live** | observability for every silent-failure mode; clean launch; decommission legacy | planned |
+| **M5 — Harden + go-live** | observability/alerts, at-least-once bot reply, schema-drift guard, thin-MVP decommissioned, Docker/compose + deploy runbook | ✅ done |
 
 ## 6. Guiding principle
 
