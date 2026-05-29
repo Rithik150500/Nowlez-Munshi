@@ -1,0 +1,83 @@
+"""Unified Razorpay webhook processing.
+
+Routes a verified webhook to the right billing state machine, exactly once:
+
+- ``subscription.activated`` / ``charged`` / ``resumed`` (Nowlez) → set the account tier
+- ``subscription.halted`` / ``cancelled`` (Nowlez) → downgrade to free
+- a captured payment carrying ``notes.munshi_invoice_id`` → mark that invoice paid (+resume)
+
+Replay idempotency: each event is recorded in ``payment_events`` by its
+``X-Razorpay-Event-Id``; a re-delivered event is a no-op.
+"""
+from __future__ import annotations
+
+import uuid
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from nm_core.billing import SubscriptionRepository
+from nm_core.billing.munshi import mark_invoice_paid
+from nm_core.billing.razorpay import extract_account_and_tier
+from nm_core.db.models.munshi_invoice import MunshiInvoice
+from nm_core.db.models.payment_event import PaymentEvent
+
+_TIER_ACTIVATE = {"subscription.activated", "subscription.charged", "subscription.resumed"}
+_TIER_CANCEL = {"subscription.halted", "subscription.cancelled"}
+
+
+def _already_processed(session: Session, event_id: str) -> bool:
+    return session.query(PaymentEvent).filter_by(event_id=event_id).first() is not None
+
+
+def _munshi_invoice_id(payload: dict[str, Any]) -> str | None:
+    try:
+        notes = payload["payload"]["payment"]["entity"].get("notes") or {}
+    except (KeyError, TypeError):
+        return None
+    inv = notes.get("munshi_invoice_id")
+    return str(inv) if inv else None
+
+
+def _provider_ref(payload: dict[str, Any], key: str) -> str | None:
+    try:
+        return str(payload["payload"][key]["entity"].get("id") or "") or None
+    except (KeyError, TypeError):
+        return None
+
+
+def process_webhook(session: Session, *, event_id: str | None, payload: dict[str, Any]) -> str:
+    """Process one verified webhook. Returns an action label (for logging/tests)."""
+    if event_id:
+        if _already_processed(session, event_id):
+            return "duplicate"
+        session.add(PaymentEvent(event_id=event_id, event_type=payload.get("event", "")))
+        session.flush()
+
+    event = payload.get("event", "")
+
+    # Munshi postpaid invoice payment.
+    inv_id = _munshi_invoice_id(payload)
+    if inv_id:
+        invoice = session.get(MunshiInvoice, uuid.UUID(inv_id))
+        if invoice is not None and invoice.status != "paid":
+            mark_invoice_paid(session, invoice, provider_ref=_provider_ref(payload, "payment"))
+            return "munshi_paid"
+        return "munshi_noop"
+
+    # Nowlez subscription tier changes.
+    if event in _TIER_ACTIVATE:
+        found = extract_account_and_tier(payload)
+        if found:
+            account_id, tier = found
+            SubscriptionRepository(session).set_tier(
+                uuid.UUID(account_id), tier, provider_ref=_provider_ref(payload, "subscription"),
+            )
+            return "nowlez_tier"
+    if event in _TIER_CANCEL:
+        found = extract_account_and_tier(payload)
+        if found:
+            SubscriptionRepository(session).set_tier(uuid.UUID(found[0]), "free")
+            return "nowlez_cancel"
+
+    return "ignored"

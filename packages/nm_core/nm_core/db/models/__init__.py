@@ -13,6 +13,7 @@ from nm_core.db.models.manual_review import ManualReviewItem
 from nm_core.db.models.messaging import MessageLog, OutboundMessage
 from nm_core.db.models.munshi_invoice import MunshiInvoice
 from nm_core.db.models.notification import Notification
+from nm_core.db.models.payment_event import PaymentEvent
 from nm_core.db.models.push import PushSubscription
 from nm_core.db.models.user import User
 
@@ -34,6 +35,7 @@ __all__ = [
     "Notification",
     "OutboundMessage",
     "OtpCode",
+    "PaymentEvent",
     "PushSubscription",
     "Subscription",
     "User",
