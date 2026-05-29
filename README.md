@@ -196,5 +196,6 @@ hard-fails — is in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## License
 
-This project does not yet carry a license file, so all rights are reserved by default.
-Add a `LICENSE` (e.g. MIT, Apache-2.0, or proprietary) before distributing.
+**Proprietary** — © 2026 Nowlez Munshi. All rights reserved. See [`LICENSE`](LICENSE).
+This software is not open source; no use, copying, or distribution is permitted
+without prior written permission of the copyright holder.
