@@ -21,6 +21,37 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Type-check
-        run: mypy || true   # advisory until nm_core has real modules
+        run: mypy
       - name: Test
         run: pytest packages/nm_core/tests
+
+  migrations-postgres:
+    # Validates the dialect-aware Alembic chain against the production dialect.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nm
+          POSTGRES_PASSWORD: nm
+          POSTGRES_DB: nm_core
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e packages/nm_core
+      - name: Alembic upgrade + downgrade on Postgres
+        working-directory: packages/nm_core
+        env:
+          DATABASE_URL: postgresql+psycopg2://nm:nm@localhost:5432/nm_core
+        run: |
+          python -m alembic -c alembic.ini upgrade head
+          python -m alembic -c alembic.ini downgrade base

@@ -9,6 +9,10 @@ src = ["packages/nm_core", "apps"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+# Alembic migrations are wide, declarative table definitions.
+"**/migrations/**" = ["E501"]
+
 [tool.mypy]
 python_version = "3.12"
 warn_unused_ignores = true

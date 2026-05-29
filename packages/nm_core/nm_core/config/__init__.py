@@ -1,3 +1,103 @@
-"""Typed settings, secrets, and prod-safety hard-fails (refuse dev-default URLs in prod).
+"""Typed settings, secrets, and prod-safety hard-fails.
 
-Phase: see docs/TARGET_ARCHITECTURE.md. Stub — implementation pending."""
+Single ``Settings`` for the M1 surface (db + identity). Later contexts add their
+own fields here. The prod-safety hard-fail refuses to boot if ``DATABASE_URL`` is
+still the localhost dev default while a production environment is detected — the
+guard that prevents the May-2026-class "prod talked to a dev DB" incident.
+"""
+from __future__ import annotations
+
+import logging
+import os
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+_DEV_DEFAULT_DATABASE_URL = "postgresql+psycopg2://localhost/nowlez_munshi"
+_PROD_INDICATOR_ENV_VARS: tuple[str, ...] = (
+    "RAILWAY_ENVIRONMENT",
+    "RAILWAY_PROJECT_ID",
+    "IS_PRODUCTION",
+)
+
+
+def _is_production_env() -> bool:
+    """True iff ENV=production or any common prod indicator env var is set+non-empty."""
+    if os.environ.get("ENV", "").strip().lower() == "production":
+        return True
+    return any((os.environ.get(k) or "").strip() for k in _PROD_INDICATOR_ENV_VARS)
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # General
+    DEV_MODE: bool = True  # enables identity.dev_login; MUST be False in prod.
+
+    # Database
+    DATABASE_URL: str = _DEV_DEFAULT_DATABASE_URL
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 5
+    DB_POOL_RECYCLE_SECONDS: int = 3600
+
+    # JWT access tokens
+    JWT_SECRET_KEY: str = "change-me-in-prod"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TTL_MINUTES: int = 30
+
+    # Opaque refresh sessions
+    REFRESH_TTL_DAYS: int = 30
+
+    # OTP
+    OTP_LENGTH: int = 6
+    OTP_TTL_MINUTES: int = 10
+    OTP_MAX_ATTEMPTS: int = 3
+    OTP_PER_PHONE_PER_HOUR: int = 5
+    OTP_PER_IP_PER_HOUR: int = 20
+
+    # Argon2id (OWASP 2026 baseline; profile under prod load before lowering)
+    ARGON2_TIME_COST: int = 2
+    ARGON2_MEMORY_COST_KB: int = 65536  # 64 MiB
+    ARGON2_PARALLELISM: int = 4
+
+    # OTP delivery — WhatsApp (Meta Cloud API)
+    META_ACCESS_TOKEN: str = ""
+    META_PHONE_NUMBER_ID: str = ""
+    META_AUTH_TEMPLATE_NAME: str = "auth_otp_v1"
+
+    # OTP delivery — SMS (MSG91)
+    MSG91_AUTH_KEY: str = ""
+    MSG91_OTP_TEMPLATE_ID: str = ""
+    MSG91_SENDER_ID: str = "NOWLEZ"
+
+    # Delivery timeouts (seconds)
+    WHATSAPP_SEND_TIMEOUT_SECONDS: float = 15.0
+    SMS_SEND_TIMEOUT_SECONDS: float = 10.0
+
+    def model_post_init(self, __context: object) -> None:
+        if self.DATABASE_URL != _DEV_DEFAULT_DATABASE_URL:
+            return  # Operator explicitly set it.
+        if _is_production_env():
+            raise RuntimeError(
+                "DATABASE_URL is unset (defaulted to localhost) but a production "
+                "environment was detected via one of "
+                f"{('ENV=production', *_PROD_INDICATOR_ENV_VARS)}. Set DATABASE_URL "
+                "in the env-file or service variables before booting."
+            )
+        logger.info(
+            "DATABASE_URL using dev default (localhost). Set DATABASE_URL for "
+            "non-local use."
+        )
+
+
+def assert_production_ready() -> None:
+    """Re-run the prod-safety check against the live environment. Raises on failure."""
+    Settings()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Process-wide cached settings."""
+    return Settings()
