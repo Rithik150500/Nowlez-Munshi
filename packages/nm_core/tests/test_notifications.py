@@ -81,8 +81,8 @@ def test_dispatch_creates_in_app_and_sends_whatsapp(db_session, monkeypatch):
     user, case = _setup(db_session)
     sent = {}
     monkeypatch.setattr(
-        "nm_core.notifications.dispatch.messaging.send_text",
-        lambda session, **kw: sent.update(kw) or "wamid.1",
+        "nm_core.notifications.dispatch.messaging.enqueue_send_text",
+        lambda **kw: sent.update(kw) or True,
     )
     n = dispatch_change(
         db_session, user=user, case=case, change=Change(type="new_orders", summary="1 new order")
@@ -99,8 +99,8 @@ def test_dispatch_in_app_only_when_digest_only(db_session, monkeypatch):
     pref = CasePreferenceRepository(db_session).get(user.id, CNR)
     called = {"n": 0}
     monkeypatch.setattr(
-        "nm_core.notifications.dispatch.messaging.send_text",
-        lambda session, **kw: called.update(n=called["n"] + 1) or "x",
+        "nm_core.notifications.dispatch.messaging.enqueue_send_text",
+        lambda **kw: called.update(n=called["n"] + 1) or True,
     )
     n = dispatch_change(
         db_session, user=user, case=case,

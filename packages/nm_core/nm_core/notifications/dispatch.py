@@ -58,14 +58,12 @@ def dispatch_change(
 
     if user.phone and _whatsapp_allowed(change, pref):
         today = datetime.now(UTC).date().isoformat()
-        wamid = messaging.send_text(
-            session,
+        if messaging.enqueue_send_text(
             to_phone=user.phone,
             body=f"{case.title or case.cnr}\n{change.summary}",
             user_id=user.id,
             dedup_key=f"{user.id}:{case.cnr}:{change.type}:{today}",
-        )
-        if wamid is not None:
+        ):
             channels.append("whatsapp")
 
     return NotificationRepository(session).create(

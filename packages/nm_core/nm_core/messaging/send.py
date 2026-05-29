@@ -1,8 +1,10 @@
-"""High-level outbound send: kill-switch + dedup + delivery logging.
+"""Outbound send: producer-side dedup (send_text/send_daily_template) over a raw
+delivery primitive (_deliver_*) that the RQ job also calls.
 
-Returns the wamid on success, or None when the send was suppressed (kill-switch,
-dedup hit, or a non-retryable Meta error). MetaTransientError propagates so the
-caller can retry.
+Split rationale: logical dedup (don't send the same alert twice) belongs at the
+*producer* (enqueue / inline call); delivery *retry* belongs to the job/RQ. So the job
+runs the raw `_deliver_*` (no dedup) — a transient retry actually re-sends instead of
+being short-circuited by its own dedup key.
 """
 from __future__ import annotations
 
@@ -52,6 +54,58 @@ def _log(
     session.flush()
 
 
+# --- raw delivery (no dedup; MetaTransientError propagates for retry) ---
+def _deliver_text(
+    session: Session,
+    *,
+    to_phone: str,
+    body: str,
+    user_id: uuid.UUID | None = None,
+    dedup_key: str | None = None,
+    client: MetaClient | None = None,
+) -> str | None:
+    client = client or MetaClient()
+    try:
+        wamid = client.send_text(to_phone, body)
+    except (MetaInvalidMessage, Meta24HourWindowExpired) as e:
+        observability.incr("whatsapp.send.failed")
+        _log(session, user_id=user_id, to_phone=to_phone, kind="text",
+             provider_message_id=None, status="failed", error_code=type(e).__name__,
+             dedup_key=dedup_key)
+        return None
+    observability.incr("whatsapp.send.sent")
+    _log(session, user_id=user_id, to_phone=to_phone, kind="text",
+         provider_message_id=wamid, status="sent", dedup_key=dedup_key)
+    return wamid
+
+
+def _deliver_template(
+    session: Session,
+    *,
+    user_id: uuid.UUID,
+    to_phone: str,
+    template_name: str,
+    language: str,
+    body_variables: list[object],
+    client: MetaClient | None = None,
+) -> str | None:
+    client = client or MetaClient()
+    try:
+        wamid = client.send_template(
+            to=to_phone, name=template_name, language=language, body_variables=body_variables
+        )
+    except (MetaInvalidMessage, Meta24HourWindowExpired) as e:
+        observability.incr("whatsapp.send.failed")
+        _log(session, user_id=user_id, to_phone=to_phone, kind="template",
+             provider_message_id=None, status="failed", error_code=type(e).__name__)
+        return None
+    observability.incr("whatsapp.send.sent")
+    _log(session, user_id=user_id, to_phone=to_phone, kind="template",
+         provider_message_id=wamid, status="sent")
+    return wamid
+
+
+# --- inline convenience (kill-switch + dedup + deliver) ---
 def send_text(
     session: Session,
     *,
@@ -61,38 +115,14 @@ def send_text(
     dedup_key: str | None = None,
     client: MetaClient | None = None,
 ) -> str | None:
-    """Send a free-text WhatsApp message (24h-window). Honors kill-switch + dedup."""
+    """Send a free-text WhatsApp message inline. Honors kill-switch + dedup."""
     if get_settings().WHATSAPP_DISABLED:
         return None
     if dedup_key and not claim_send_dedup(dedup_key):
         return None
-    client = client or MetaClient()
-    try:
-        wamid = client.send_text(to_phone, body)
-    except (MetaInvalidMessage, Meta24HourWindowExpired) as e:
-        observability.incr("whatsapp.send.failed")
-        _log(
-            session,
-            user_id=user_id,
-            to_phone=to_phone,
-            kind="text",
-            provider_message_id=None,
-            status="failed",
-            error_code=type(e).__name__,
-            dedup_key=dedup_key,
-        )
-        return None
-    observability.incr("whatsapp.send.sent")
-    _log(
-        session,
-        user_id=user_id,
-        to_phone=to_phone,
-        kind="text",
-        provider_message_id=wamid,
-        status="sent",
-        dedup_key=dedup_key,
+    return _deliver_text(
+        session, to_phone=to_phone, body=body, user_id=user_id, dedup_key=dedup_key, client=client
     )
-    return wamid
 
 
 def send_daily_template(
@@ -105,21 +135,15 @@ def send_daily_template(
     body_variables: list[object],
     client: MetaClient | None = None,
 ) -> str | None:
-    """Send a daily-cadence template, claiming the per-day DB slot first (cross-pod safe)."""
+    """Send a daily-cadence template inline, claiming the per-day DB slot first."""
     if get_settings().WHATSAPP_DISABLED:
         return None
     if not claim_daily_slot(
-        session,
-        user_id=user_id,
-        template_name=template_name,
-        send_date_ist=_today_ist(),
-        to_phone=to_phone,
+        session, user_id=user_id, template_name=template_name,
+        send_date_ist=_today_ist(), to_phone=to_phone,
     ):
         return None  # already sent today
-    client = client or MetaClient()
-    try:
-        return client.send_template(
-            to=to_phone, name=template_name, language=language, body_variables=body_variables
-        )
-    except (MetaInvalidMessage, Meta24HourWindowExpired):
-        return None
+    return _deliver_template(
+        session, user_id=user_id, to_phone=to_phone, template_name=template_name,
+        language=language, body_variables=body_variables, client=client,
+    )

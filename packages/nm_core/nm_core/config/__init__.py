@@ -67,8 +67,9 @@ class Settings(BaseSettings):
     ARGON2_MEMORY_COST_KB: int = 65536  # 64 MiB
     ARGON2_PARALLELISM: int = 4
 
-    # Redis (outbound dedup, future queue)
+    # Redis (outbound dedup, send queue)
     REDIS_URL: str = _DEV_DEFAULT_REDIS_URL
+    RQ_SYNC: bool = False  # True → RQ jobs run inline (dev/tests, no worker process)
 
     # WhatsApp / Meta Cloud API (shared by identity OTP delivery and messaging)
     META_ACCESS_TOKEN: str = ""

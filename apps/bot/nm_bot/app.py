@@ -62,6 +62,6 @@ def _process(msg: messaging.IncomingMessage) -> None:
             reply = handle_message(
                 session, from_phone=msg.from_phone, text=msg.text, button_payload=msg.button_payload
             )
-            messaging.send_text(session, to_phone=msg.from_phone, body=reply)
+            messaging.enqueue_send_text(to_phone=msg.from_phone, body=reply)
     except Exception:  # noqa: BLE001 — never 500 the webhook; Meta would retry-storm
         logger.exception("failed to process inbound %s", msg.meta_message_id)
