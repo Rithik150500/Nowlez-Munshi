@@ -33,9 +33,15 @@ _SAFE_TITLE_RE = re.compile(r"[^A-Za-z0-9 _-]+")
 
 
 def is_available() -> bool:
-    """True if a Node runtime is resolvable and the runner is present."""
+    """True if drafting can actually render: a resolvable Node runtime, the runner,
+    and the ``docx`` package installed next to it (``npm install --omit=dev``)."""
     bin_ = get_settings().DOCX_NODE_BIN
-    return bool(bin_) and shutil.which(bin_) is not None and _RUNNER.exists()
+    return (
+        bool(bin_)
+        and shutil.which(bin_) is not None
+        and _RUNNER.exists()
+        and (_RUNNER.parent / "node_modules" / "docx").exists()
+    )
 
 
 def read_reference() -> str:
