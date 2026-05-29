@@ -46,4 +46,7 @@ export const api = {
   calendar: () => req("GET", "/api/calendar"),
   analytics: () => req("GET", "/api/analytics"),
   adminOverview: () => req("GET", "/api/admin/overview"),
+  documents: () => req("GET", "/api/documents"),
+  createDocument: (title) => req("POST", "/api/documents", { title }),
+  editorConfig: (id) => req("GET", `/api/documents/${id}/editor`),
 };

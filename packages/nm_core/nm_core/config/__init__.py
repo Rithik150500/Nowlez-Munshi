@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     # Document storage (order PDFs, drafts)
     STORAGE_DIR: str = "./var/storage"
 
+    # OnlyOffice DOCX editing (requires a Document Server; empty disables it)
+    ONLYOFFICE_SERVER_URL: str = ""
+    ONLYOFFICE_JWT_SECRET: str = ""
+
     # AI Munshi (Gemini). No key → deterministic offline agent (dev/tests).
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3-flash-preview"

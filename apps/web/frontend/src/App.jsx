@@ -8,6 +8,7 @@ import Chat from "./Chat.jsx";
 import Team from "./Team.jsx";
 import Calendar from "./Calendar.jsx";
 import Admin from "./Admin.jsx";
+import Documents from "./Documents.jsx";
 
 export default function App() {
   const [me, setMe] = useState(null);
@@ -93,6 +94,9 @@ export default function App() {
         <button className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")}>
           Ask Munshi
         </button>
+        <button className={`tab ${tab === "docs" ? "active" : ""}`} onClick={() => setTab("docs")}>
+          Documents
+        </button>
         <button className={`tab ${tab === "alerts" ? "active" : ""}`} onClick={() => setTab("alerts")}>
           Alerts
         </button>
@@ -120,6 +124,7 @@ export default function App() {
         />
       )}
       {tab === "chat" && <Chat />}
+      {tab === "docs" && <Documents />}
       {tab === "alerts" && <Notifications />}
       {tab === "team" && <Team />}
       {tab === "admin" && me.is_admin && <Admin />}

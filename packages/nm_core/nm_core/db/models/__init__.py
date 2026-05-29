@@ -7,6 +7,7 @@ from nm_core.db.models.auth import AuthSession, OtpCode
 from nm_core.db.models.billing import Subscription
 from nm_core.db.models.case import Case, CaseOrder, CasePreference
 from nm_core.db.models.chat import ChatMessage, ChatThread
+from nm_core.db.models.document import Document
 from nm_core.db.models.messaging import MessageLog, OutboundMessage
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
@@ -20,6 +21,7 @@ __all__ = [
     "CasePreference",
     "ChatMessage",
     "ChatThread",
+    "Document",
     "MessageLog",
     "Membership",
     "Notification",

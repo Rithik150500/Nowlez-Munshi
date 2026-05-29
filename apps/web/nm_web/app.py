@@ -6,7 +6,17 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from nm_web.routers import admin, ask, auth, billing, cases, insights, notifications, teams
+from nm_web.routers import (
+    admin,
+    ask,
+    auth,
+    billing,
+    cases,
+    documents,
+    insights,
+    notifications,
+    teams,
+)
 
 app = FastAPI(title="Nowlez Munshi — web")
 app.include_router(auth.router)
@@ -17,6 +27,7 @@ app.include_router(teams.router)
 app.include_router(insights.router)
 app.include_router(billing.router)
 app.include_router(admin.router)
+app.include_router(documents.router)
 
 
 @app.get("/api/health")

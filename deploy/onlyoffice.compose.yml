@@ -1,0 +1,15 @@
+# OnlyOffice Document Server for M4i (DOCX editing).
+#
+# Required by apps/web's /api/documents editor. The web app and this container must
+# share a network so the Document Server can reach the content/callback URLs
+# (set WEB_BASE_URL to a host both can resolve), and the JWT secret must match
+# ONLYOFFICE_JWT_SECRET in the web app's env.
+services:
+  onlyoffice:
+    image: onlyoffice/documentserver:8.2
+    ports:
+      - "8081:80"
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: "${ONLYOFFICE_JWT_SECRET}"
+    restart: unless-stopped
