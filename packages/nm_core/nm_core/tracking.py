@@ -43,10 +43,12 @@ def refresh_case(session, *, user: User, cnr: str) -> RefreshResult:
 
 def run_refresh_sweep(session: Session, *, limit: int = 100) -> dict[str, int]:
     """Refresh the next batch of due cases. Returns counts for observability."""
-    due = CaseRepository(session).get_due_for_refresh(limit=limit)
+    cases_repo = CaseRepository(session)
+    due = cases_repo.get_due_for_refresh(limit=limit)
     refreshed = 0
     changed = 0
     errored = 0
+    skipped = 0
     user_cache: dict[uuid.UUID, User | None] = {}
     for case in due:
         user = user_cache.get(case.user_id)
@@ -55,6 +57,12 @@ def run_refresh_sweep(session: Session, *, limit: int = 100) -> dict[str, int]:
             user_cache[case.user_id] = user
         if user is None:
             continue
+        # Re-verify the case is still tracked right before firing: a user may have
+        # /forgotten it after it was selected into this batch, and we must not spend
+        # a notification (or a template) on a case they just dropped.
+        if cases_repo.get_by_cnr(case.user_id, case.cnr) is None:
+            skipped += 1
+            continue
         try:
             result = refresh_case(session, user=user, cnr=case.cnr)
             refreshed += 1
@@ -62,4 +70,5 @@ def run_refresh_sweep(session: Session, *, limit: int = 100) -> dict[str, int]:
                 changed += 1
         except Exception:  # noqa: BLE001 — one bad case must not stop the sweep
             errored += 1
-    return {"refreshed": refreshed, "changed": changed, "errored": errored, "due": len(due)}
+    return {"refreshed": refreshed, "changed": changed, "errored": errored,
+            "skipped": skipped, "due": len(due)}

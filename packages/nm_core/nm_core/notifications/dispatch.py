@@ -38,7 +38,9 @@ _ALERT_LEVEL_ALLOWS = {
 
 def _realtime_allowed(change: Change, pref: CasePreference | None) -> bool:
     level = pref.alert_level if pref else "all"
-    if change.type not in _ALERT_LEVEL_ALLOWS.get(level, set()):
+    # Urgent changes (e.g. an imminent hearing) bypass the alert-level gate so even
+    # digest_only / hearings_only users get them in real time. Snooze is still honored.
+    if not change.urgent and change.type not in _ALERT_LEVEL_ALLOWS.get(level, set()):
         return False
     if pref and pref.snooze_until is not None:
         snooze = pref.snooze_until

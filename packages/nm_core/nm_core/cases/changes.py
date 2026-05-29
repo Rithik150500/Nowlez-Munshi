@@ -3,12 +3,19 @@
 Change types: status_change, hearing_date_change, new_orders, disposal, transfer.
 A stage change that looks like a disposal is reported as ``disposal`` (higher impact),
 not also as a generic ``status_change``.
+
+A hearing-date change landing within ``URGENT_HEARING_DAYS`` is flagged ``urgent``:
+the dispatcher delivers urgent changes in real time even to ``digest_only`` users
+(a hearing two days out is too important to hold for the nightly digest). Ported
+from the legacy bot's ``amendment_detected`` split.
 """
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from nm_core.ecourts.models import Case
 
@@ -17,6 +24,8 @@ ChangeType = Literal[
 ]
 
 _DISPOSED_RE = re.compile(r"dispos", re.IGNORECASE)
+_IST = ZoneInfo("Asia/Kolkata")
+URGENT_HEARING_DAYS = 3
 
 
 @dataclass(frozen=True)
@@ -24,14 +33,20 @@ class Change:
     type: ChangeType
     summary: str
     detail: dict = field(default_factory=dict)
+    urgent: bool = False
 
 
 def _is_disposed(stage: str | None) -> bool:
     return bool(stage and _DISPOSED_RE.search(stage))
 
 
-def detect_changes(old: Case, new: Case) -> list[Change]:
+def _today_ist() -> date:
+    return datetime.now(UTC).astimezone(_IST).date()
+
+
+def detect_changes(old: Case, new: Case, *, today: date | None = None) -> list[Change]:
     changes: list[Change] = []
+    today = today or _today_ist()
 
     # Stage / disposal
     if (old.stage or "") != (new.stage or ""):
@@ -52,19 +67,23 @@ def detect_changes(old: Case, new: Case) -> list[Change]:
                 )
             )
 
-    # Next hearing date
+    # Next hearing date. A new date within URGENT_HEARING_DAYS is urgent — it must
+    # reach the user in real time even if they're on digest_only.
     if old.next_hearing_date != new.next_hearing_date:
+        nhd = new.next_hearing_date
+        urgent = nhd is not None and 0 <= (nhd - today).days <= URGENT_HEARING_DAYS
         changes.append(
             Change(
                 type="hearing_date_change",
                 summary=(
-                    f"Next hearing: {old.next_hearing_date or '—'} → "
-                    f"{new.next_hearing_date or '—'}"
+                    ("⚠️ Hearing imminent — " if urgent else "")
+                    + f"Next hearing: {old.next_hearing_date or '—'} → {nhd or '—'}"
                 ),
                 detail={
                     "old": old.next_hearing_date.isoformat() if old.next_hearing_date else None,
-                    "new": new.next_hearing_date.isoformat() if new.next_hearing_date else None,
+                    "new": nhd.isoformat() if nhd else None,
                 },
+                urgent=urgent,
             )
         )
 
