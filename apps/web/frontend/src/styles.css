@@ -1,0 +1,32 @@
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --accent: #6366f1;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.app { max-width: 880px; margin: 0 auto; padding: 16px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.brand { font-weight: 700; font-size: 20px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.tab { padding: 8px 14px; border-radius: 8px; background: var(--panel); cursor: pointer; border: none; color: var(--text); }
+.tab.active { background: var(--accent); }
+.card { background: var(--panel); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.card h3 { margin: 0 0 6px; }
+.muted { color: var(--muted); font-size: 13px; }
+.row { display: flex; gap: 8px; align-items: center; }
+input, select { padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: var(--text); }
+button { padding: 10px 14px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; }
+button.ghost { background: transparent; border: 1px solid #334155; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #334155; margin-left: 6px; }
+.err { color: #f87171; font-size: 13px; }
+.grow { flex: 1; }
+ul.history { padding-left: 18px; }
+a { color: #93c5fd; }

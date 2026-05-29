@@ -13,3 +13,7 @@ __pycache__/
 htmlcov/
 *.log
 .DS_Store
+
+# Frontend
+apps/web/frontend/node_modules/
+apps/web/frontend/dist/

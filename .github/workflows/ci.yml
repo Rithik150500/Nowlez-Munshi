@@ -26,6 +26,20 @@ jobs:
       - name: Test
         run: pytest packages/nm_core/tests apps
 
+  frontend:
+    # Builds the React SPA (apps/web/frontend) to catch build/type errors.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build SPA
+        working-directory: apps/web/frontend
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
   migrations-postgres:
     # Validates the dialect-aware Alembic chain against the production dialect.
     runs-on: ubuntu-latest
