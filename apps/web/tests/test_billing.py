@@ -74,3 +74,37 @@ def test_webhook_rejects_bad_signature(client, monkeypatch):
     r = client.post("/api/billing/webhook", content=b"{}",
                     headers={"X-Razorpay-Signature": "nope"})
     assert r.status_code == 403
+
+
+def test_start_trial_then_conflict(client):
+    h, _ = _auth(client, "+919100000404")
+    r = client.post("/api/billing/trial", headers=h)
+    assert r.status_code == 200
+    assert r.json()["tier"] == "chambers" and r.json()["status"] == "trialing"
+    # trial grants the tier via effective_tier
+    assert client.get("/api/billing", headers=h).json()["tier"] == "chambers"
+    # second attempt conflicts (already has a subscription/trial)
+    assert client.post("/api/billing/trial", headers=h).status_code == 409
+
+
+def test_invoices_listed(client):
+    h, uid = _auth(client, "+919100000405")
+    # seed a postpaid invoice directly via the session
+    from datetime import date
+
+    from nm_core.billing.munshi import generate_invoice
+    from nm_core.db.models.user import User
+    gen = client.app.dependency_overrides[get_db]()
+    session = next(gen)
+    try:
+        user = session.get(User, uuid.UUID(uid))
+        user.billing_anniversary_day = 15
+        session.flush()
+        generate_invoice(session, user=user, today=date(2026, 4, 15))
+        session.commit()
+    finally:
+        gen.close()
+
+    body = client.get("/api/billing/invoices", headers=h).json()
+    assert len(body["invoices"]) == 1
+    assert body["invoices"][0]["status"] == "pending"
