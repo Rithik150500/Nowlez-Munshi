@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -53,7 +53,7 @@ def seed() -> None:
         user_dao.ensure_nowlez_extension(session, user.id, name="Demo Advocate")
         session.flush()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         added = 0
         for spec in _CASES:
             exists = (
