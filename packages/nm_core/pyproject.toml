@@ -1,0 +1,29 @@
+[project]
+name = "nm-core"
+version = "0.1.0"
+description = "Nowlez Munshi domain core — pure domain, no HTTP/UI knowledge."
+# Production target is 3.12 (per ADR-0001); floor is 3.11 to match the shared
+# ecosystem and current dev environments.
+requires-python = ">=3.11"
+dependencies = [
+    "SQLAlchemy>=2.0,<3.0",
+    "alembic>=1.13,<2.0",
+    "psycopg2-binary>=2.9",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "httpx>=0.27",
+    "PyJWT[crypto]>=2.8",
+    "argon2-cffi>=23.1",
+    "phonenumbers>=8.13",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.1",
+    "redis>=5.0",
+    "rq>=1.16",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nm_core"]

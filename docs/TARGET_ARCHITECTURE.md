@@ -73,9 +73,10 @@ core by import — independent scale & fault isolation, zero pin coordination.
   forensic columns, no uuid5 placeholders). SQLite-variant types only for fast unit
   tests; integration tests run real Postgres.
 - One Alembic chain from migration 0001.
-- **Data migration is a first-class workstream:** a one-time ETL from the current
-  production `data_access` schema → the new schema, with validation, dry-run, and a
-  reversible cutover. Planned in Phase 8.
+- **No data migration — clean launch [D].** Per product decision there is no
+  production data to preserve; go-live is a fresh launch, not an ETL. This removes
+  the single largest risk and cost of the rewrite (no parity verification against a
+  legacy store, no reversible-cutover machinery).
 
 ## 5. Build phases (each independently shippable, behind tests)
 
@@ -89,11 +90,10 @@ core by import — independent scale & fault isolation, zero pin coordination.
 | **5** | `nm_core.billing` (Razorpay subscriptions + postpaid). |
 | **6** | `apps/web`: FastAPI API + React SPA on the core. |
 | **7** | `apps/bot` (webhook + handlers) + `apps/worker` (jobs/crons) on the core. |
-| **8** | Production data ETL + cutover plan + parity verification against legacy. |
-| **9** | Observability dashboards/alerts for every mapped failure mode; decommission legacy repos. |
+| **8** | Observability dashboards/alerts for every mapped failure mode; clean go-live; decommission legacy repos. |
 
-Strangler-style: legacy keeps running through Phase 8; cutover is the only big-bang
-moment, and it's reversible.
+Each phase ships behind its own tests. Because there is **no data migration**,
+go-live is a clean launch — no risky big-bang cutover and no legacy-parity gate.
 
 ## 6. Deploy **[?]**
 
@@ -106,7 +106,9 @@ Final pick deferred to a deploy ADR.
 
 **Locked [D]:** monorepo (Option A); rewrite core + apps; same stack; one
 Postgres/one Alembic chain; channel-agnostic AI + dispatch; adopt the
-`Nowlez-Munshi` repo as the monorepo home.
+`Nowlez-Munshi` repo as the monorepo home; **no data migration — clean launch**.
+
+See `docs/adr/ADR-0001-architecture.md` for the resolved open questions.
 
 **Open [?]:**
 - Deploy platform (VPS Compose vs container platform).

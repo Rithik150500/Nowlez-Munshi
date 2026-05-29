@@ -1,0 +1,21 @@
+# Workspace tooling root for the Nowlez Munshi monorepo.
+# Each package/app has its own pyproject; this file centralizes lint/type/test config.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["packages/nm_core", "apps"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+files = ["packages/nm_core/nm_core"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["packages/nm_core/tests", "apps", "tests"]
