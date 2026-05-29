@@ -87,4 +87,10 @@ def link(body: LinkBody, db: Session = Depends(get_db)) -> dict:
 
 @router.get("/me")
 def me(user: User = Depends(get_current_user)) -> dict:
-    return {"id": str(user.id), "phone": user.phone, "name": user.name, "locale": user.locale}
+    return {
+        "id": str(user.id),
+        "phone": user.phone,
+        "name": user.name,
+        "locale": user.locale,
+        "is_admin": user.is_admin,
+    }

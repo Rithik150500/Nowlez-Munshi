@@ -44,4 +44,5 @@ export const api = {
   invite: (id, phone, role) => req("POST", `/api/accounts/${id}/members`, { phone, role }),
   calendar: () => req("GET", "/api/calendar"),
   analytics: () => req("GET", "/api/analytics"),
+  adminOverview: () => req("GET", "/api/admin/overview"),
 };

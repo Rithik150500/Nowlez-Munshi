@@ -7,6 +7,7 @@ import Notifications from "./Notifications.jsx";
 import Chat from "./Chat.jsx";
 import Team from "./Team.jsx";
 import Calendar from "./Calendar.jsx";
+import Admin from "./Admin.jsx";
 
 export default function App() {
   const [me, setMe] = useState(null);
@@ -98,6 +99,11 @@ export default function App() {
         <button className={`tab ${tab === "team" ? "active" : ""}`} onClick={() => setTab("team")}>
           Chamber
         </button>
+        {me.is_admin && (
+          <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>
+            Admin
+          </button>
+        )}
       </div>
       {tab === "cases" &&
         (openCnr ? (
@@ -116,6 +122,7 @@ export default function App() {
       {tab === "chat" && <Chat />}
       {tab === "alerts" && <Notifications />}
       {tab === "team" && <Team />}
+      {tab === "admin" && me.is_admin && <Admin />}
     </div>
   );
 }

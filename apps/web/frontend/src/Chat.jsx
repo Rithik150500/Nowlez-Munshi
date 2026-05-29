@@ -8,6 +8,24 @@ export default function Chat() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // Voice (M4g): browser Web Speech API — dictation + read-back, feature-detected.
+  const speak = (text) => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    }
+  };
+  const dictate = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setErr("Voice input isn't supported in this browser.");
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-IN";
+    rec.onresult = (e) => setQ(e.results[0][0].transcript);
+    rec.start();
+  };
+
   const send = async () => {
     const question = q.trim();
     if (!question) return;
@@ -22,6 +40,7 @@ export default function Chat() {
         ...m,
         { role: "assistant", content: a.answer, citations: a.citations, mode: a.mode },
       ]);
+      speak(a.answer);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -61,6 +80,9 @@ export default function Chat() {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
         />
+        <button className="ghost" onClick={dictate} title="Dictate">
+          🎤
+        </button>
         <button onClick={send} disabled={busy}>
           {busy ? "…" : "Send"}
         </button>
