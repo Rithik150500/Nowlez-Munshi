@@ -62,13 +62,13 @@
 
 ## 5. Milestones ↔ architecture phases
 
-| Milestone | Delivers | Arch phases |
+| Milestone | Delivers | Status |
 |---|---|---|
-| **M1 — Spine + tracking** | account + add/track cases + daily refresh | 1–2 (config, db, identity, ecourts, cases) |
-| **M2 — Both doors + alerts** | bot (lookup/monitor/digests), web (book + detail), worker (refresh/polls/crons), unified alerts → **Bet 3** | 3 + apps MVP |
-| **M3 — AI Munshi everywhere** | agentic Q&A on web **and** WhatsApp → **Bet 1** | 4 (ai) |
-| **M4 — Continuity + full practice ops** | account linking/deep-links (**Bet 2**) + docs, calendar, teams, growth, voice, admin | 5–7 |
-| **M5 — Harden + go-live** | observability for every silent-failure mode; clean launch; decommission legacy | 8 |
+| **M1 — Spine + tracking** | config, db, identity (phone-OTP, JWT, refresh) | ✅ done |
+| **M2 — Both doors + alerts** | ecourts, cases + change classifier, messaging, notifications; worker (refresh sweep), bot (WhatsApp commands), web (REST API + React SPA), unified alerts → **Bet 3** | ✅ done |
+| **M3 — AI Munshi everywhere** | agentic Q&A on web **and** WhatsApp → **Bet 1** | next |
+| **M4 — Continuity + full practice ops** | account linking/deep-links (**Bet 2**) + docs, calendar, teams, growth, voice, admin | planned |
+| **M5 — Harden + go-live** | observability for every silent-failure mode; clean launch; decommission legacy | planned |
 
 ## 6. Guiding principle
 
