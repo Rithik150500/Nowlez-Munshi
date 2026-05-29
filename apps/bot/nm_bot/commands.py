@@ -137,7 +137,7 @@ def handle_message(
 
     if not raw.startswith("/"):
         if search_flow.has_pending_text_step(user):
-            return search_flow.handle_party_name(session, user, raw)
+            return search_flow.handle_text_step(session, user, raw)
         if _is_greeting(raw):  # first-touch greeting → show the welcome + language picker
             return _send_welcome(session, user)
         return _format_answer(ai.ask(session, user=user, question=raw, channel="whatsapp"))

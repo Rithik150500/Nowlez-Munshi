@@ -8,6 +8,7 @@ from nm_core.ecourts.models import (
     CaseStub,
     CourtComplexRef,
     DistrictRef,
+    PoliceStationRef,
     StateRef,
 )
 from nm_core.ecourts.resilience import with_circuit_breaker, with_retry, with_semaphore
@@ -120,5 +121,34 @@ def search_case_number(
             state_code=state_code, district_code=district_code,
             court_code_arr=court_code_arr, case_type=case_type,
             case_number=case_number, year=year,
+        )
+    )()
+
+
+def list_police_stations(
+    *, state_code: str, district_code: str, court_code: str
+) -> list[PoliceStationRef]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_list_police_stations(
+            state_code=state_code, district_code=district_code, court_code=court_code
+        )
+    return _compose(
+        lambda: _district().list_police_stations(
+            state_code=state_code, district_code=district_code, court_code=court_code
+        )
+    )()
+
+
+def search_fir(
+    *, state_code: str, district_code: str, court_code_arr: str,
+    police_station_code: str, fir_number: str, year: int,
+) -> list[CaseStub]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_search_by_fir(fir_number=fir_number, year=year)
+    return _compose(
+        lambda: _district().search_by_fir(
+            state_code=state_code, district_code=district_code,
+            court_code_arr=court_code_arr, police_station_code=police_station_code,
+            fir_number=fir_number, year=year,
         )
     )()

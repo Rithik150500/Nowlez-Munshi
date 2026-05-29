@@ -94,11 +94,11 @@ def test_search_command_starts_guided_flow(db_session, monkeypatch):
     monkeypatch.setattr(redis_dedup, "_client", fakeredis.FakeStrictRedis())
     sent: list[dict] = []
     import nm_core.messaging as messaging
-    monkeypatch.setattr(messaging, "send_interactive_list",
+    monkeypatch.setattr(messaging, "send_interactive_buttons",
                         lambda session, **kw: sent.append(kw) or "wamid")
 
-    assert _reply(db_session, "/search") == ""  # picker sent inline
-    assert sent and sent[-1]["rows"][0]["id"].startswith("search:state:")
+    assert _reply(db_session, "/search") == ""  # mode picker sent inline
+    assert sent and sent[-1]["buttons"][0]["id"].startswith("search:mode:")
 
 
 def test_track_reply_includes_web_link(db_session, monkeypatch):
