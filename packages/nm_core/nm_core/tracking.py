@@ -60,6 +60,9 @@ def run_refresh_sweep(session: Session, *, limit: int = 100) -> dict[str, int]:
             user_cache[case.user_id] = user
         if user is None:
             continue
+        if user.billing_suspended_at is not None:
+            skipped += 1  # postpaid suspended for non-payment — don't refresh
+            continue
         # Re-verify the case is still tracked right before firing: a user may have
         # /forgotten it after it was selected into this batch, and we must not spend
         # a notification (or a template) on a case they just dropped.

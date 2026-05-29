@@ -15,6 +15,7 @@ production schedule.
 | `nm_worker.canary` | cron | Fetch a known CNR from the live portal to detect eCourts schema drift / outages |
 | `nm_worker.reengage` | cron | Nudge users inactive beyond `REENGAGE_AFTER_DAYS` |
 | `nm_worker.documents` | cron / worker | Process uploaded order/judgment documents |
+| `nm_worker.billing` | cron (daily) | Generate due Munshi invoices, run grace/suspension, expire lapsed trials |
 
 ## Run locally
 
