@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from nm_core.db.base import Base
@@ -20,7 +20,9 @@ class Account(Base):
     owner_user_id: Mapped[uuid.UUID] = mapped_column(
         UUIDType, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    is_personal: Mapped[bool] = mapped_column(default=True)
+    is_personal: Mapped[bool] = mapped_column(
+        default=True, server_default=text("true")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -37,7 +39,9 @@ class Membership(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUIDType, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    role: Mapped[str] = mapped_column(Text, nullable=False, default="owner")
+    role: Mapped[str] = mapped_column(
+        Text, nullable=False, default="owner", server_default="owner"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

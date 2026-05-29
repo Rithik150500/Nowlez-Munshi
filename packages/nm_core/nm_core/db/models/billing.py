@@ -18,8 +18,12 @@ class Subscription(Base):
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUIDType, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
-    tier: Mapped[str] = mapped_column(Text, nullable=False, default="free")
-    status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    tier: Mapped[str] = mapped_column(
+        Text, nullable=False, default="free", server_default="free"
+    )
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="active", server_default="active"
+    )
     provider_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
