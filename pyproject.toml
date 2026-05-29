@@ -15,6 +15,9 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 # Alembic migrations are wide, declarative table definitions.
 "**/migrations/**" = ["E501"]
+# FastAPI's Depends()/Header() in argument defaults is the framework idiom, not the
+# B008 mutable-call-in-default bug.
+"apps/**" = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"

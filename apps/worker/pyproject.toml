@@ -1,0 +1,14 @@
+[project]
+name = "nm-worker"
+version = "0.1.0"
+description = "Nowlez Munshi background worker: refresh sweep + digests."
+requires-python = ">=3.11"
+# nm-core is provided by the workspace (installed editable); not a PyPI dep.
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nm_worker"]
