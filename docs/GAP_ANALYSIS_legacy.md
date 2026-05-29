@@ -135,23 +135,28 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 | Paginated order viewer (WhatsApp) | ⬜ deferred (needs interactive list + media UX polish) |
 | Referrals · coupons · waitlist (growth-billing) | ⬜ Wave 5 |
 
-## Post-Waves-1–4 fidelity verification (regressions to fix)
+## Post-Waves-1–4 fidelity verification (regressions — ALL FIXED)
 
 A fresh read of the shipped port against the legacy surfaced these behavioral
-regressions (file:line confirmed both sides). Ranked by user impact:
+regressions (file:line confirmed both sides). All fixed with tests:
 
-| # | Bug | Where | Fix |
-|---|---|---|---|
-| 1 | Cause-list back-resolution passes the raw case-type abbreviation (`"WP"`) to `caseNumberSearch.php`; eCourts needs the **numeric NIC code** (legacy translates via cached `list_case_types`). Back-resolution fails for most rows → guts the cause-list digest. | `cause_lists.py:130` | M |
-| 2 | No "exactly one match" guard — takes `hits[0]`, so an ambiguous search binds a row to the **wrong CNR**. | `cause_lists.py:134` | S |
-| 3 | FIR police-station listing passes the full complex code, but the listing endpoint needs `est_code` → FIR guided-search returns no stations. | `search_flow.py` `_after_complex` | S |
-| 4 | Munshi billing uses a current-snapshot count, no 200-case cap, and a `cycle_end+7d` grace anchor — vs legacy distinct-over-window count, 200 cap, `due_at+7d`. | `billing/munshi.py` | M |
-| 5 | Stage-change comparison isn't trim/lowercase-normalized → cosmetic NIC edits fire spurious `status_change` alerts. | `cases/changes.py:52` | S |
-| 6 | STOP keyword set is first-token-only + narrow — misses `OPT OUT`, `PAUSE`, romanized/multi-word Hindi (`band karo`). DPDP-sensitive. | `consent.py:21` | S |
-| 7 | Legacy `fetch_url`/Tavily-Extract tool dropped — agent can't pull full judgment text from a URL. | `ai/tavily.py` | M |
+| # | Bug | Status |
+|---|---|---|
+| 1 | Cause-list back-resolution passed the raw abbreviation (`"WP"`) as case_type instead of the numeric NIC code → resolution failed for most rows. | ✅ translate via `hc_list_case_types` |
+| 2 | No "exactly one match" guard (`hits[0]`) → ambiguous search bound the wrong CNR. | ✅ unambiguous-only |
+| 3 | FIR police-station listing passed the complex code, not `est_code` → no stations. | ✅ pass `court_code_arr` |
+| 4 | Munshi billing: no 200-case cap; `cycle_end+7d` grace anchor. | ✅ cap + due+grace anchor (distinct-over-window count deferred — see below) |
+| 5 | Stage compare not normalized → spurious `status_change` on cosmetic edits. | ✅ `_normalize_stage` |
+| 6 | STOP set first-token-only & narrow (missed `OPT OUT`/`PAUSE`/romanized Hindi). | ✅ full legacy set + phrase match |
+| 7 | `fetch_url`/Tavily-Extract tool dropped. | ✅ restored |
 
 Faithful (no action): cycle math, trial + cross-product exemption, Razorpay webhook
 core, drafting (byte-identical runner), interactive/document send.
+
+**Deferred (infrastructure, not a bug):** legacy Munshi usage counts COUNT(DISTINCT
+case_id) over a `case_billing_periods` overlap window (a mid-cycle add-then-forget is
+still billed); greenfield bills the current snapshot. A faithful port needs a
+`case_billing_periods` table + case open/close lifecycle hooks — a Wave-5+ follow-up.
 
 ## Wave 5 plan (build-ready specs in agent reports)
 
