@@ -110,8 +110,9 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
    Nowlez trial machine + cross-product exemption, unified Razorpay webhook router +
    `payment_events` replay (0018), daily billing cron, web invoices/trial endpoints.
    - *Deferred to Wave 5 polish:* referrals, coupons, waitlist (growth-billing, not core).
-4. ⬜ **Wave 4 — AI differentiation:** Tavily search, legal-doc drafting + templates, chat
-   feedback/edit/resume.
+4. ✅ **Wave 4 — AI differentiation** *(done)*: Tavily web search + web-source citations,
+   chat feedback (thumbs) + edit/regenerate, legal-doc drafting (sandboxed Node docx-js
+   runner + 100 templates, faithful port).
 5. ⬜ **Wave 5 — Document/search depth + growth polish:** universal FTS, file-tree, OCR,
    drip email, GDPR export, richer re-engagement, ICS/voice/feedback/admin/client entity.
 
@@ -130,6 +131,7 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 | Munshi postpaid (cycles · invoicing · grace/suspension/resume) | ✅ |
 | Nowlez trial · cross-product exemption | ✅ |
 | Unified Razorpay webhook + replay · billing cron · web invoices/trial | ✅ |
+| AI Tavily web search · chat feedback/edit · legal-doc drafting (Node) | ✅ |
 | Paginated order viewer (WhatsApp) | ⬜ deferred (needs interactive list + media UX polish) |
 | Referrals · coupons · waitlist (growth-billing) | ⬜ Wave 5 |
 | AI differentiation (Tavily, drafting, chat feedback) | ⬜ Wave 4 |
