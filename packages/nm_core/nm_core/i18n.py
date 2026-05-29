@@ -23,7 +23,7 @@ _BOT: dict[str, dict[str, str]] = {
             "• /label <CNR> <text> — name a case\n"
             "• /portfolio — your case book at a glance\n"
             "• /refresh — check all your cases now\n"
-            "• /search — find a case by party / number on the web\n"
+            "• /search — guided case search by party name\n"
             "• send a *case QR photo* to track it\n"
             "• /web — open your case book on the web"
         ),

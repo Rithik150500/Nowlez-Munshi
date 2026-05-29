@@ -83,12 +83,22 @@ def test_web_command_deep_link(db_session, monkeypatch):
     assert "https://app.nowlez.in/link#token=" in reply
 
 
-def test_search_command_deep_links_to_web(db_session, monkeypatch):
-    from nm_core.config import get_settings
+def test_search_command_starts_guided_flow(db_session, monkeypatch):
+    """/search now runs an in-chat guided party search (no longer a web deep-link)."""
+    import fakeredis
 
-    monkeypatch.setattr(get_settings(), "WEB_BASE_URL", "https://app.nowlez.in")
-    reply = _reply(db_session, "/search")
-    assert "/link#token=" in reply and "next=/search" in reply
+    from nm_core.config import get_settings
+    from nm_core.messaging import redis_dedup
+
+    monkeypatch.setattr(get_settings(), "ECOURTS_OFFLINE", True)
+    monkeypatch.setattr(redis_dedup, "_client", fakeredis.FakeStrictRedis())
+    sent: list[dict] = []
+    import nm_core.messaging as messaging
+    monkeypatch.setattr(messaging, "send_interactive_list",
+                        lambda session, **kw: sent.append(kw) or "wamid")
+
+    assert _reply(db_session, "/search") == ""  # picker sent inline
+    assert sent and sent[-1]["rows"][0]["id"].startswith("search:state:")
 
 
 def test_track_reply_includes_web_link(db_session, monkeypatch):

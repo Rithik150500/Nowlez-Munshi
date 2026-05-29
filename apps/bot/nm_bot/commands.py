@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from nm_bot import search_flow
 from nm_core import ai, consent, identity, messaging, tracking
 from nm_core.ai.types import Answer
 from nm_core.cases import CasePreferenceRepository, CaseRepository
@@ -126,11 +127,17 @@ def handle_message(
     if button_payload and button_payload.startswith(_ONBOARD_LANG_PREFIX):
         return _complete_onboarding(session, user, button_payload[len(_ONBOARD_LANG_PREFIX):])
 
+    # Guided search: list-picker callbacks, and the free-text party-name step.
+    if search_flow.is_search_button(button_payload):
+        return search_flow.handle_button(session, user, button_payload)
+
     upper = raw.upper()
     if CNR_REGEX.match(upper):
         return _track(session, user, upper)
 
     if not raw.startswith("/"):
+        if search_flow.has_pending_text_step(user):
+            return search_flow.handle_party_name(session, user, raw)
         if _is_greeting(raw):  # first-touch greeting → show the welcome + language picker
             return _send_welcome(session, user)
         return _format_answer(ai.ask(session, user=user, question=raw, channel="whatsapp"))
@@ -147,14 +154,7 @@ def handle_message(
         link = _web_link(user)
         return f"📱 Open Nowlez Munshi on the web:\n{link}" if link else "Web app isn't configured."
     if cmd == "/search":
-        # Structured search needs court pickers — hand off to the web search screen.
-        link = _web_link(user, next_path="/search")
-        if not link:
-            return "Search needs the web app, which isn't configured."
-        return (
-            "🔎 Search by party name or case number needs court selection. "
-            f"Open search on web:\n{link}"
-        )
+        return search_flow.start(session, user)
     if cmd == "/saved":
         return _list(cases.list_by_user(user.id), empty=t("no_cases", user.locale))
     if cmd == "/today":
