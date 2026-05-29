@@ -77,7 +77,9 @@ class CircuitBreaker:
             self._half_open_allowed = False
 
     def record_failure(self) -> None:
+        opened = False
         with self._lock:
+            was_open = self._state == "open"
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
             if self._state == "half_open":
@@ -89,6 +91,11 @@ class CircuitBreaker:
                 self._state = "open"
             elif self._failure_count >= self._failure_threshold:
                 self._state = "open"
+            opened = self._state == "open" and not was_open
+        if opened:
+            from nm_core import observability
+
+            observability.incr("ecourts.circuit_open")
 
     def time_until_retry(self) -> float:
         with self._lock:

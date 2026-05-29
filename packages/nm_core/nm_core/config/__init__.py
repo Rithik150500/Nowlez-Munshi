@@ -120,6 +120,10 @@ class Settings(BaseSettings):
     # Re-engagement: nudge users inactive for this many days
     REENGAGE_AFTER_DAYS: int = 14
 
+    # Observability
+    SENTRY_DSN: str = ""
+    ALERT_WEBHOOK_URL: str = ""
+
     # AI Munshi (Gemini). No key → deterministic offline agent (dev/tests).
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3-flash-preview"

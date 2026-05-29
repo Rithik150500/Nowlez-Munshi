@@ -11,7 +11,7 @@ def _auth(client) -> dict:
 
 
 def test_health(client):
-    assert client.get("/api/health").json() == {"status": "ok"}
+    assert client.get("/api/health").json()["status"] == "ok"
 
 
 def test_requires_auth(client):

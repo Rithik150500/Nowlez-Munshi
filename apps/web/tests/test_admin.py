@@ -33,4 +33,11 @@ def test_admin_overview_for_admin(client):
     _promote(client, uid)
     r = client.get("/api/admin/overview", headers=h)
     assert r.status_code == 200
-    assert r.json()["users"] >= 1
+    body = r.json()
+    assert body["users"] >= 1
+    assert "metrics" in body and "refresh_lag_seconds" in body
+
+
+def test_health_deep_check(client):
+    body = client.get("/api/health").json()
+    assert body["status"] == "ok" and body["db"] is True

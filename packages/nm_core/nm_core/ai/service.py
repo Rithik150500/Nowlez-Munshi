@@ -11,6 +11,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from nm_core import observability
 from nm_core.ai import gemini, offline
 from nm_core.ai.repository import ChatRepository
 from nm_core.ai.tools import ToolContext
@@ -73,6 +74,7 @@ def ask(
         text = offline.run_agent(question=question, history=history, execute_tool=ctx.execute)
         mode = "offline"
 
+    observability.incr(f"ai.answer.{mode}")
     citations = _citations(session, user.id, ctx, text)
     repo.add_message(
         thread.id,

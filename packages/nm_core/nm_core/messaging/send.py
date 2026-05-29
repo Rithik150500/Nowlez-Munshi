@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from nm_core import observability
 from nm_core.config import get_settings
 from nm_core.db.models.messaging import OutboundMessage
 from nm_core.messaging.client import MetaClient
@@ -69,6 +70,7 @@ def send_text(
     try:
         wamid = client.send_text(to_phone, body)
     except (MetaInvalidMessage, Meta24HourWindowExpired) as e:
+        observability.incr("whatsapp.send.failed")
         _log(
             session,
             user_id=user_id,
@@ -80,6 +82,7 @@ def send_text(
             dedup_key=dedup_key,
         )
         return None
+    observability.incr("whatsapp.send.sent")
     _log(
         session,
         user_id=user_id,

@@ -3,9 +3,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
+from nm_core import observability
+from nm_web.deps import get_db
 from nm_web.routers import (
     admin,
     ask,
@@ -18,6 +22,7 @@ from nm_web.routers import (
     teams,
 )
 
+observability.init_sentry()
 app = FastAPI(title="Nowlez Munshi — web")
 app.include_router(auth.router)
 app.include_router(cases.router)
@@ -31,8 +36,14 @@ app.include_router(documents.router)
 
 
 @app.get("/api/health")
-def health() -> dict:
-    return {"status": "ok"}
+def health(db: Session = Depends(get_db)) -> dict:
+    """Deep check: the API is up and the database is reachable."""
+    db_ok = True
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:  # noqa: BLE001
+        db_ok = False
+    return {"status": "ok" if db_ok else "degraded", "db": db_ok}
 
 
 # Serve the built SPA when present (apps/web/frontend/dist). html=True falls back to
