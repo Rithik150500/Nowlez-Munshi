@@ -58,13 +58,14 @@ def test_webhook_upgrades_tier(client, monkeypatch):
     h, _ = _auth(client, "+919100000403")
     account_id = client.get("/api/billing", headers=h).json()["account_id"]
 
-    payload = {"payload": {"subscription": {"entity": {"notes": {
-        "account_id": account_id, "tier": "advocate"}}}}}
+    payload = {"event": "subscription.activated",
+               "payload": {"subscription": {"entity": {"notes": {
+                   "account_id": account_id, "tier": "advocate"}}}}}
     raw = json.dumps(payload).encode()
     sig = hmac.new(b"whsec", raw, hashlib.sha256).hexdigest()
     r = client.post("/api/billing/webhook", content=raw,
                     headers={"X-Razorpay-Signature": sig, "Content-Type": "application/json"})
-    assert r.json() == {"ok": True}
+    assert r.json() == {"ok": True, "action": "nowlez_tier"}
     assert client.get("/api/billing", headers=h).json()["tier"] == "advocate"
 
 

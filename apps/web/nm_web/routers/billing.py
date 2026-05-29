@@ -1,20 +1,18 @@
 """Billing: tier/usage status, Razorpay webhook (sets tier), checkout stub."""
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from nm_core.billing import (
     TIERS,
-    SubscriptionRepository,
     _count_cases,
     _count_members,
     effective_tier,
 )
-from nm_core.billing.razorpay import extract_account_and_tier, verify_webhook
+from nm_core.billing.razorpay import verify_webhook
+from nm_core.billing.webhook import process_webhook
 from nm_core.config import get_settings
 from nm_core.db.models.user import User
 from nm_core.teams import ensure_personal_account
@@ -66,8 +64,6 @@ async def webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     if not verify_webhook(body, sig, get_settings().RAZORPAY_WEBHOOK_SECRET):
         raise HTTPException(status_code=403, detail="bad signature")
     payload = await request.json()
-    found = extract_account_and_tier(payload)
-    if found:
-        account_id, tier = found
-        SubscriptionRepository(db).set_tier(uuid.UUID(account_id), tier, provider_ref="razorpay")
-    return {"ok": True}
+    event_id = request.headers.get("X-Razorpay-Event-Id")
+    action = process_webhook(db, event_id=event_id, payload=payload)
+    return {"ok": True, "action": action}
