@@ -94,7 +94,11 @@ def remove_member(
     aid = uuid.UUID(account_id)
     if not require_role(db, account_id=aid, user_id=user.id, minimum="owner"):
         raise HTTPException(status_code=403, detail="owner role required")
-    ok = AccountRepository(db).remove_member(aid, uuid.UUID(member_id))
-    if not ok:
+    repo = AccountRepository(db)
+    target = uuid.UUID(member_id)
+    owners = [m for m in repo.list_members(aid) if m.role == "owner"]
+    if any(m.user_id == target for m in owners) and len(owners) <= 1:
+        raise HTTPException(status_code=400, detail="cannot remove the last owner")
+    if not repo.remove_member(aid, target):
         raise HTTPException(status_code=404, detail="member not found")
     return {"ok": True}

@@ -39,6 +39,13 @@ def test_invite_and_shared_case_book(client):
     assert cases[0]["mine"] is False
 
 
+def test_cannot_remove_last_owner(client):
+    owner_h, owner_id = _auth(client, "+919100000117", "Owner")
+    acc = client.post("/api/accounts", json={"name": "Solo"}, headers=owner_h).json()
+    r = client.delete(f"/api/accounts/{acc['id']}/members/{owner_id}", headers=owner_h)
+    assert r.status_code == 400
+
+
 def test_invite_requires_owner(client):
     owner_h, _ = _auth(client, "+919100000114", "Owner")
     viewer_h, _ = _auth(client, "+919100000115", "Viewer")

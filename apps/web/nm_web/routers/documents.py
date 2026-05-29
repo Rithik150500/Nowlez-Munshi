@@ -6,6 +6,7 @@ a short JWT (doc purpose) so the Document Server can fetch/post without a user s
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt as pyjwt
@@ -31,7 +32,15 @@ class CreateBody(BaseModel):
 
 def _doc_token(doc_id: uuid.UUID) -> str:
     s = get_settings()
-    return pyjwt.encode({"purpose": "doc", "doc": str(doc_id)}, s.JWT_SECRET_KEY, algorithm="HS256")
+    now = datetime.now(UTC)
+    # Short-lived capability so a leaked editor URL can't grant indefinite access.
+    payload = {
+        "purpose": "doc",
+        "doc": str(doc_id),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=2)).timestamp()),
+    }
+    return pyjwt.encode(payload, s.JWT_SECRET_KEY, algorithm="HS256")
 
 
 def _verify_doc_token(token: str, doc_id: str) -> bool:
