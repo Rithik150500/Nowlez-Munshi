@@ -21,6 +21,7 @@ dependencies = [
     "pdfplumber>=0.11",
     "redis>=5.0",
     "rq>=1.16",
+    "tzdata",  # IANA tz db for zoneinfo on Windows/slim Docker (see messaging.send)
 ]
 
 [project.optional-dependencies]
