@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from nm_core import tracking
+from nm_core import billing, tracking
 from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.cases.changes import Change
 from nm_core.db.models.user import User
 from nm_core.ecourts.errors import CNRMalformed, CNRNotFound, ECourtsError
-from nm_core.teams import accessible_user_ids
+from nm_core.teams import accessible_user_ids, ensure_personal_account
 from nm_web import serializers
 from nm_web.deps import get_current_user, get_db
 
@@ -49,6 +49,9 @@ def add_case(
     body: AddBody, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> dict:
     cnr = body.cnr.strip().upper()
+    account = ensure_personal_account(db, user)
+    if not billing.within_case_limit(db, account.id):
+        raise HTTPException(status_code=402, detail="case limit reached for your plan")
     try:
         result = tracking.track_case(db, user=user, cnr=cnr, added_via="web")
     except CNRMalformed as e:

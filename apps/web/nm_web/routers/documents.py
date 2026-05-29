@@ -89,6 +89,10 @@ async def upload(
 ) -> dict:
     """Upload a document (PDF/DOCX/text) → store → extract text + AI summary."""
     account = ensure_personal_account(db, user)
+    from nm_core.billing import feature_allowed
+
+    if not feature_allowed(db, account.id, "documents"):
+        raise HTTPException(status_code=402, detail="document uploads require a paid plan")
     data = await file.read()
     title = file.filename or "upload"
     doc = docproc.DocumentRepository(db).create_upload(

@@ -125,6 +125,11 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     ALERT_WEBHOOK_URL: str = ""
 
+    # Billing (Razorpay). Tier gates are enforced; checkout needs these keys.
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
     # AI Munshi (Gemini). No key → deterministic offline agent (dev/tests).
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3-flash-preview"

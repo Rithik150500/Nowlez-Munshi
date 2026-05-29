@@ -79,6 +79,10 @@ def invite(
         raise HTTPException(status_code=403, detail="owner role required")
     if body.role not in ("owner", "editor", "viewer"):
         raise HTTPException(status_code=422, detail="invalid role")
+    from nm_core.billing import within_member_limit
+
+    if not within_member_limit(db, aid):
+        raise HTTPException(status_code=402, detail="member limit reached for your plan")
     invitee, _ = UserRepository(db).get_or_create_by_phone(phone=body.phone)
     AccountRepository(db).add_member(account_id=aid, user_id=invitee.id, role=body.role)
     return {"user_id": str(invitee.id), "role": body.role}
