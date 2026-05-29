@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Idempotent dev setup for Claude Code web sessions:
-#   venv -> editable shared packages -> app deps -> seed demo data.
-# Fast on re-runs; never hard-fails the session.
+# Idempotent dev setup for Claude Code web sessions (greenfield rebuild).
+#   venv -> editable nm_core[test] + apps. Fast on re-runs; never hard-fails.
 set -u
 cd "$(dirname "$0")/.." || exit 0
 
@@ -12,25 +11,17 @@ fi
 . .venv/bin/activate
 python -m pip install -q --upgrade pip >/dev/null 2>&1 || true
 
-# Prefer LOCAL editable shared packages when present (offline-friendly; the web
-# sandbox has /home/user/shared checked out). Falls back to the pinned git
-# installs in requirements.txt only if the local checkout is missing.
-if [ -d /home/user/shared/data-access ]; then
-  pip install -q \
-    -e /home/user/shared/data-access \
-    -e /home/user/shared/ecourts_client \
-    -e /home/user/shared/whatsapp_delivery \
-    -e /home/user/shared/identity \
-    -e /home/user/shared/case-billing >/dev/null 2>&1 || true
-  pip install -q fastapi "uvicorn[standard]" python-multipart httpx pytest >/dev/null 2>&1 || true
-else
-  pip install -q -r requirements-dev.txt >/dev/null 2>&1 || true
-fi
+pip install -q -e "packages/nm_core[test]" >/dev/null 2>&1 || true
+pip install -q -e apps/web -e apps/bot -e apps/worker >/dev/null 2>&1 || true
+pip install -q ruff==0.15.15 mypy==2.1.0 >/dev/null 2>&1 || true
 
+# Dev defaults: SQLite + offline integrations so everything runs without creds.
 export DEV_MODE=1
-export MUNSHI_DATABASE_URL="${MUNSHI_DATABASE_URL:-sqlite:///./nowlez_munshi.db}"
+export DATABASE_URL="${DATABASE_URL:-sqlite:///./dev.db}"
 export JWT_SECRET_KEY="${JWT_SECRET_KEY:-dev-secret-not-for-prod}"
+export ECOURTS_OFFLINE="${ECOURTS_OFFLINE:-1}"
 
-python scripts/seed_demo.py >/dev/null 2>&1 || true
+( cd packages/nm_core && DATABASE_URL="$DATABASE_URL" \
+    python -m alembic -c alembic.ini upgrade head >/dev/null 2>&1 || true )
 
-echo "Nowlez Munshi ready. Run:  uvicorn app.main:app --reload  (then open http://localhost:8000/)"
+echo "Nowlez Munshi (rebuild) ready. Tests: pytest packages/nm_core/tests apps"
