@@ -41,8 +41,9 @@ def decode_access_token(token: str) -> dict:
         raise InvalidToken("access token expired") from e
     except pyjwt.InvalidTokenError as e:
         raise InvalidToken(f"invalid access token: {e}") from e
-    if claims.get("purpose") == _LINK_PURPOSE:
-        raise InvalidToken("link token cannot be used as an access token")
+    if claims.get("purpose") is not None:
+        # Access tokens carry no purpose; link/doc/etc. tokens must not be usable here.
+        raise InvalidToken("non-access token cannot be used as an access token")
     return claims
 
 

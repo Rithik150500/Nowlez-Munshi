@@ -26,7 +26,23 @@ def test_link_token_rejected_as_access_token(db_session):
     import uuid
 
     token = encode_link_token(uuid.uuid4())
-    with pytest.raises(InvalidToken, match="link token"):
+    with pytest.raises(InvalidToken, match="non-access token"):
+        decode_access_token(token)
+
+
+def test_doc_purpose_token_rejected_as_access_token():
+    import uuid
+
+    import jwt as pyjwt
+
+    from nm_core.config import get_settings
+
+    # A doc capability token (purpose=doc) must not be usable as an access token.
+    s = get_settings()
+    token = pyjwt.encode(
+        {"sub": str(uuid.uuid4()), "purpose": "doc"}, s.JWT_SECRET_KEY, algorithm=s.JWT_ALGORITHM
+    )
+    with pytest.raises(InvalidToken, match="non-access token"):
         decode_access_token(token)
 
 
