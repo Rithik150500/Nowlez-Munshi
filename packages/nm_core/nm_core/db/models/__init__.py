@@ -6,6 +6,7 @@ from nm_core.db.models.audit import AuditLog
 from nm_core.db.models.auth import AuthSession, OtpCode
 from nm_core.db.models.billing import Subscription
 from nm_core.db.models.case import Case, CaseOrder, CasePreference
+from nm_core.db.models.cause_list import CauseListRow
 from nm_core.db.models.chat import ChatMessage, ChatThread
 from nm_core.db.models.document import Document
 from nm_core.db.models.manual_review import ManualReviewItem
@@ -21,6 +22,7 @@ __all__ = [
     "Case",
     "CaseOrder",
     "CasePreference",
+    "CauseListRow",
     "ChatMessage",
     "ChatThread",
     "Document",

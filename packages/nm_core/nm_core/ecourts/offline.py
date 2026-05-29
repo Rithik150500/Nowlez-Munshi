@@ -13,6 +13,9 @@ from nm_core.ecourts.models import (
     CaseStub,
     CourtComplexRef,
     DistrictRef,
+    HCBenchSitting,
+    HCCauseListIndex,
+    HCCauseListPDFRow,
     HearingHistoryRow,
     OrderRef,
     Party,
@@ -115,6 +118,25 @@ def offline_search_by_fir(*, fir_number: str, year: int) -> list[CaseStub]:
             case_number=f"FIR/{fir_number}/{year}", court="Demo District Court",
             filing_year=year, stage="Appearance",
         )
+    ]
+
+
+def offline_hc_bench_sittings(*, state_code: str, sitting_date: date) -> list[HCBenchSitting]:
+    return [HCBenchSitting(code="B1", name="Demo Bench", state_code=str(state_code),
+                           sitting_date=sitting_date)]
+
+
+def offline_hc_cause_list_index(*, bench_id: str) -> list[HCCauseListIndex]:
+    return [HCCauseListIndex(sr_no=1, bench=str(bench_id), list_type="Daily",
+                            pdf_url=f"/cause_list/{bench_id}.pdf")]
+
+
+def offline_hc_cause_list_pdf_rows(*, pdf_url: str) -> list[HCCauseListPDFRow]:
+    return [
+        HCCauseListPDFRow(sr_no=1, section="ADMISSION", case_number="WP/100/2026",
+                          raw_text="1 WP/100/2026 Petitioner vs State"),
+        HCCauseListPDFRow(sr_no=2, section="ADMISSION", case_number="WP/200/2026",
+                          raw_text="2 WP/200/2026 Another vs State"),
     ]
 
 

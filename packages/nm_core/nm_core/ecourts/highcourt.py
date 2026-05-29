@@ -1,11 +1,25 @@
-"""High court client: single-step CNR fetch (+ search, benches, states)."""
+"""High court client: single-step CNR fetch (+ search, benches, states, cause lists)."""
 from __future__ import annotations
 
 import time
+from datetime import date
 
 from nm_core.ecourts import extra_parsers as xp
+from nm_core.ecourts.cause_list_hc import (
+    parse_hc_bench_sittings,
+    parse_hc_cause_list_index,
+    parse_hc_cause_list_pdf,
+)
 from nm_core.ecourts.errors import CNRNotFound
-from nm_core.ecourts.models import BenchRef, Case, CaseStub, StateRef
+from nm_core.ecourts.models import (
+    BenchRef,
+    Case,
+    CaseStub,
+    HCBenchSitting,
+    HCCauseListIndex,
+    HCCauseListPDFRow,
+    StateRef,
+)
 from nm_core.ecourts.parsers import parse_case_history
 from nm_core.ecourts.pdf import fetch_pdf
 from nm_core.ecourts.session import Session
@@ -67,3 +81,33 @@ class HighCourtClient:
              "case_type": str(case_type), "year": str(year), **_ENG},
         )
         return xp.parse_case_number_search(resp)
+
+    # --- cause lists ---
+    def list_bench_sittings(
+        self, *, state_code: str, district_code: str, court_code: str, sitting_date: date
+    ) -> list[HCBenchSitting]:
+        """Benches sitting on a date (empty on holidays / non-sitting days)."""
+        resp = self._session.call(
+            "causeListBenchWebService.php",
+            {"state_code": str(state_code), "dist_code": str(district_code),
+             "court_code": str(court_code), "date": sitting_date.strftime("%d-%m-%Y")},
+        )
+        return parse_hc_bench_sittings(resp, state_code=str(state_code), sitting_date=sitting_date)
+
+    def fetch_cause_list_index(
+        self, *, state_code: str, district_code: str, court_code: str,
+        bench_id: str, list_date: date, today: date | None = None,
+    ) -> list[HCCauseListIndex]:
+        """The cause-list index for a bench on a date; each row points to a PDF."""
+        sel_prev = "1" if list_date < (today or date.today()) else "0"
+        resp = self._session.call(
+            "cases_new.php",
+            {"state_code": str(state_code), "dist_code": str(district_code),
+             "selprevdays": sel_prev, "court_code": str(court_code),
+             "causelist_date": list_date.strftime("%d-%m-%Y"), "bench_id": str(bench_id)},
+        )
+        return parse_hc_cause_list_index(resp)
+
+    def fetch_cause_list_pdf_rows(self, *, pdf_url: str) -> list[HCCauseListPDFRow]:
+        """Download a cause-list PDF and extract its rows (position-based, best-effort)."""
+        return parse_hc_cause_list_pdf(fetch_pdf(self._session._http, pdf_url))

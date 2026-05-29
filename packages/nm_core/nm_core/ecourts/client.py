@@ -1,6 +1,8 @@
 """Public eCourts API: fetch_case / fetch_pdf, with resilience + offline mode."""
 from __future__ import annotations
 
+from datetime import date
+
 from nm_core.config import get_settings
 from nm_core.ecourts import offline
 from nm_core.ecourts.models import (
@@ -8,6 +10,9 @@ from nm_core.ecourts.models import (
     CaseStub,
     CourtComplexRef,
     DistrictRef,
+    HCBenchSitting,
+    HCCauseListIndex,
+    HCCauseListPDFRow,
     PoliceStationRef,
     StateRef,
 )
@@ -150,5 +155,62 @@ def search_fir(
             state_code=state_code, district_code=district_code,
             court_code_arr=court_code_arr, police_station_code=police_station_code,
             fir_number=fir_number, year=year,
+        )
+    )()
+
+
+# --- High Court cause lists ---
+def _highcourt():
+    from nm_core.ecourts.highcourt import HighCourtClient
+
+    return HighCourtClient()
+
+
+def hc_bench_sittings(
+    *, state_code: str, district_code: str, court_code: str, sitting_date: date
+) -> list[HCBenchSitting]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_hc_bench_sittings(state_code=state_code, sitting_date=sitting_date)
+    return _compose(
+        lambda: _highcourt().list_bench_sittings(
+            state_code=state_code, district_code=district_code,
+            court_code=court_code, sitting_date=sitting_date,
+        )
+    )()
+
+
+def hc_cause_list_index(
+    *, state_code: str, district_code: str, court_code: str, bench_id: str, list_date: date
+) -> list[HCCauseListIndex]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_hc_cause_list_index(bench_id=bench_id)
+    return _compose(
+        lambda: _highcourt().fetch_cause_list_index(
+            state_code=state_code, district_code=district_code,
+            court_code=court_code, bench_id=bench_id, list_date=list_date,
+        )
+    )()
+
+
+def hc_cause_list_pdf_rows(*, pdf_url: str) -> list[HCCauseListPDFRow]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_hc_cause_list_pdf_rows(pdf_url=pdf_url)
+    return _compose(lambda: _highcourt().fetch_cause_list_pdf_rows(pdf_url=pdf_url))()
+
+
+def hc_search_case_number(
+    *, state_code: str, district_code: str, court_code_arr: str,
+    case_type: str, case_number: str, year: int,
+) -> list[CaseStub]:
+    """HC case-number search — used to back-resolve a cause-list row's CNR."""
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_search_case_number(
+            case_type=case_type, case_number=case_number, year=year
+        )
+    return _compose(
+        lambda: _highcourt().search_by_case_number(
+            state_code=state_code, district_code=district_code,
+            court_code_arr=court_code_arr, case_type=case_type,
+            case_number=case_number, year=year,
         )
     )()
