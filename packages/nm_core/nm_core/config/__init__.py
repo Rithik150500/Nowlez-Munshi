@@ -114,6 +114,16 @@ class Settings(BaseSettings):
                 "REDIS_URL is unset (defaulted to localhost) but a production environment "
                 "was detected. Set REDIS_URL in the env-file or service variables."
             )
+        if prod and self.JWT_SECRET_KEY == "change-me-in-prod":
+            raise RuntimeError(
+                "JWT_SECRET_KEY is the insecure default but a production environment was "
+                "detected. Set a strong JWT_SECRET_KEY (>= 32 bytes)."
+            )
+        if prod and self.DEV_MODE:
+            raise RuntimeError(
+                "DEV_MODE is enabled but a production environment was detected. DEV_MODE "
+                "exposes credential-free login (/auth/dev-login); set DEV_MODE=0 in prod."
+            )
 
 
 def assert_production_ready() -> None:
