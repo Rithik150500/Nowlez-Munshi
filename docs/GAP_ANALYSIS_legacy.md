@@ -94,14 +94,37 @@ one-time migration + clean core deliberately sheds all of it.
 
 ## Porting roadmap (dependency-ordered)
 
-1. **Wave 1 — WhatsApp foundation + compliance:** interactive send (buttons/lists),
-   document/PDF delivery, STOP/opt-out + consent, onboarding flow. *Unblocks Waves 2–3
-   bot-side; closes the DPDP gap.*
-2. **Wave 2 — eCourts cause-list + guided search:** HC parsers, digest pipeline, guided
-   search state machine, order viewer, change-diff refinements.
-3. **Wave 3 — Monetization lifecycle:** billing schema, Munshi postpaid, Nowlez
+Status as of the latest push on `claude/port-legacy` (PR #4).
+
+1. ✅ **Wave 1 — WhatsApp foundation + compliance** *(done)*: interactive send
+   (buttons/lists), document/PDF delivery, STOP/opt-out + consent (migration 0013),
+   onboarding flow.
+2. ✅ **Wave 2 — eCourts cause-list + guided search** *(done)*: change-diff refinements
+   (amendment urgency + mid-cron recheck), `/label`·`/portfolio`·`/refresh`,
+   `manual_review_queue` (0014), conversation-state store + guided party/case-number/FIR
+   search, HC cause-list parsers + indexer + `cause_list_rows` (0015) + CNR
+   back-resolution + digest assembly (snapshot ∪ indexed rows) + holiday skip.
+   - *Follow-ups:* morning-amendment-diff + Sunday-preview windows; indexer cron schedule.
+3. ⬜ **Wave 3 — Monetization lifecycle:** billing schema, Munshi postpaid, Nowlez
    subscription machines, cross-product exemption, unified webhook + crons, web billing UI.
-4. **Wave 4 — AI differentiation:** Tavily search, legal-doc drafting + templates, chat
+4. ⬜ **Wave 4 — AI differentiation:** Tavily search, legal-doc drafting + templates, chat
    feedback/edit/resume.
-5. **Wave 5 — Document/search depth + growth polish:** universal FTS, file-tree, OCR,
+5. ⬜ **Wave 5 — Document/search depth + growth polish:** universal FTS, file-tree, OCR,
    drip email, GDPR export, richer re-engagement, ICS/voice/feedback/admin/client entity.
+
+### Closed gaps → commits (Waves 1–2)
+
+| Gap (from clusters above) | Status |
+|---|---|
+| WhatsApp interactive send · document delivery | ✅ |
+| STOP/opt-out + consent (DPDP) | ✅ |
+| Onboarding (language picker + demo) | ✅ |
+| `amendment_detected` urgency · forgotten-mid-cron recheck | ✅ |
+| `manual_review_queue` failure escalation | ✅ |
+| Guided search — party · case-number · FIR | ✅ |
+| HC cause-list parsers · indexer · back-resolution · digest union | ✅ |
+| `/label` · `/portfolio` · `/refresh` | ✅ |
+| Paginated order viewer (WhatsApp) | ⬜ deferred (needs interactive list + media UX polish) |
+| Monetization lifecycle (all) | ⬜ Wave 3 |
+| AI differentiation (Tavily, drafting, chat feedback) | ⬜ Wave 4 |
+| Universal FTS · file-tree · OCR · drip · GDPR export · richer re-engage · ICS · voice · admin breadth · client entity | ⬜ Wave 5 |
