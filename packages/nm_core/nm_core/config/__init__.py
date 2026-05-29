@@ -76,6 +76,20 @@ class Settings(BaseSettings):
     WHATSAPP_SEND_TIMEOUT_SECONDS: float = 15.0
     SMS_SEND_TIMEOUT_SECONDS: float = 10.0
 
+    # eCourts. OFFLINE serves deterministic synthetic cases (dev/tests, no portal);
+    # MUST be False in prod or you will serve fake case data.
+    ECOURTS_OFFLINE: bool = False
+    ECOURTS_DISTRICT_BASE_URL: str = "https://app.ecourts.gov.in/ecourt_mobile_DC/"
+    ECOURTS_HC_BASE_URL: str = "https://app.ecourts.gov.in/ecourt_mobile_HC/"
+    ECOURTS_USER_AGENT: str = "NowlezMunshi/1.0 (+https://nowlez.in/contact)"
+    ECOURTS_REQUEST_TIMEOUT_SECONDS: float = 30.0
+    ECOURTS_PDF_TIMEOUT_SECONDS: float = 60.0
+    ECOURTS_MAX_CONCURRENCY: int = 10
+    ECOURTS_CIRCUIT_FAILURE_THRESHOLD: int = 5
+    ECOURTS_CIRCUIT_RECOVERY_TIMEOUT_SECONDS: float = 60.0
+    ECOURTS_RETRY_MAX_ATTEMPTS: int = 3
+    ECOURTS_RETRY_BASE_DELAY_SECONDS: float = 1.0
+
     def model_post_init(self, __context: object) -> None:
         if self.DATABASE_URL != _DEV_DEFAULT_DATABASE_URL:
             return  # Operator explicitly set it.
