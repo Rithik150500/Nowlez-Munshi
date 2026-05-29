@@ -22,6 +22,9 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 ignore_missing_imports = true
 files = ["packages/nm_core/nm_core"]
+# Alembic migrations are declarative DDL with dialect-conditional column types
+# that defeat generic inference; not worth type-checking.
+exclude = "nm_core/db/migrations/"
 
 [tool.pytest.ini_options]
 addopts = "-q"
