@@ -118,6 +118,11 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
+    # Web push (VAPID). Empty keys → push channel is a no-op (dev/tests).
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:no-reply@nowlez.in"
+
     # Re-engagement: nudge users inactive for this many days
     REENGAGE_AFTER_DAYS: int = 14
 
@@ -162,6 +167,11 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 "DEV_MODE is enabled but a production environment was detected. DEV_MODE "
                 "exposes credential-free login (/auth/dev-login); set DEV_MODE=0 in prod."
+            )
+        if bool(self.VAPID_PUBLIC_KEY) != bool(self.VAPID_PRIVATE_KEY):
+            raise RuntimeError(
+                "VAPID keys are half-configured: set BOTH VAPID_PUBLIC_KEY and "
+                "VAPID_PRIVATE_KEY to enable web push, or neither to disable it."
             )
 
 

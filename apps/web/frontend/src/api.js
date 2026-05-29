@@ -60,6 +60,8 @@ export const api = {
     const p = new URLSearchParams(q).toString();
     return req("GET", `/api/search/party?${p}`);
   },
+  pushKey: () => req("GET", "/api/push/key"),
+  pushSubscribe: (sub) => req("POST", "/api/push/subscribe", sub),
   documents: () => req("GET", "/api/documents"),
   createDocument: (title) => req("POST", "/api/documents", { title }),
   editorConfig: (id) => req("GET", `/api/documents/${id}/editor`),

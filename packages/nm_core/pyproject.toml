@@ -24,6 +24,7 @@ dependencies = [
     "rq>=1.16",
     "Pillow>=10.0",
     "pyzbar>=0.1.9",
+    "pywebpush>=2.0",
 ]
 
 [project.optional-dependencies]

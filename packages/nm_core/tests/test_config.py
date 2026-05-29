@@ -37,6 +37,19 @@ def test_fully_configured_production_passes(monkeypatch):
     assert s.DEV_MODE is False
 
 
+def test_half_configured_vapid_hard_fails(monkeypatch):
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "pub-only")
+    monkeypatch.delenv("VAPID_PRIVATE_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="VAPID keys are half-configured"):
+        Settings()
+
+
+def test_both_vapid_keys_pass(monkeypatch):
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "pub")
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "priv")
+    assert Settings().VAPID_PUBLIC_KEY == "pub"
+
+
 def test_redis_dev_default_in_production_hard_fails(monkeypatch):
     _prod_env(monkeypatch)
     monkeypatch.delenv("REDIS_URL", raising=False)

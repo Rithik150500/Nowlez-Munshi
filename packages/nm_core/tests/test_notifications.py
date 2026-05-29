@@ -15,7 +15,7 @@ from nm_core.ecourts.offline import clear_offline_cases, register_offline_case
 from nm_core.identity.repositories import UserRepository
 from nm_core.messaging import redis_dedup
 from nm_core.notifications import NotificationRepository, dispatch_change
-from nm_core.notifications.dispatch import _whatsapp_allowed
+from nm_core.notifications.dispatch import _realtime_allowed
 
 CNR = "DLND010000012024"
 
@@ -55,25 +55,25 @@ def _mk(level: str, snooze=None):
 # --- policy ---
 def test_policy_all_allows_everything():
     for t in ("status_change", "new_orders", "disposal", "transfer", "hearing_date_change"):
-        assert _whatsapp_allowed(Change(type=t, summary=""), _mk("all")) is True
+        assert _realtime_allowed(Change(type=t, summary=""), _mk("all")) is True
 
 
 def test_policy_orders_only():
-    assert _whatsapp_allowed(Change(type="new_orders", summary=""), _mk("orders_only")) is True
-    assert _whatsapp_allowed(Change(type="status_change", summary=""), _mk("orders_only")) is False
+    assert _realtime_allowed(Change(type="new_orders", summary=""), _mk("orders_only")) is True
+    assert _realtime_allowed(Change(type="status_change", summary=""), _mk("orders_only")) is False
 
 
 def test_policy_digest_only_blocks_realtime():
-    assert _whatsapp_allowed(Change(type="new_orders", summary=""), _mk("digest_only")) is False
+    assert _realtime_allowed(Change(type="new_orders", summary=""), _mk("digest_only")) is False
 
 
 def test_policy_snooze_suppresses():
     future = datetime.now(UTC) + timedelta(days=1)
-    assert _whatsapp_allowed(Change(type="new_orders", summary=""), _mk("all", future)) is False
+    assert _realtime_allowed(Change(type="new_orders", summary=""), _mk("all", future)) is False
 
 
 def test_policy_default_is_all_when_no_pref():
-    assert _whatsapp_allowed(Change(type="disposal", summary=""), None) is True
+    assert _realtime_allowed(Change(type="disposal", summary=""), None) is True
 
 
 # --- dispatch ---
