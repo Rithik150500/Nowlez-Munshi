@@ -35,8 +35,7 @@ def reengage_dormant(session: Session, *, now: datetime | None = None) -> int:
             continue
         if user.re_engaged_at is not None and _aware(user.re_engaged_at) >= cutoff:
             continue
-        messaging.send_text(
-            session,
+        messaging.enqueue_send_text(
             to_phone=user.phone,
             body=_NUDGE,
             user_id=user.id,

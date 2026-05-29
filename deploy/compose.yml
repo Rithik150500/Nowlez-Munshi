@@ -54,5 +54,16 @@ services:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
 
+  send-worker:
+    build: { context: .., dockerfile: deploy/worker.Dockerfile }
+    command: ["python", "-m", "nm_worker.send_worker"]
+    env_file: [../.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://nm:${POSTGRES_PASSWORD:-nm}@postgres:5432/nm
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
 volumes:
   pgdata:

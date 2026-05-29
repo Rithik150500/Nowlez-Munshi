@@ -10,11 +10,12 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt as pyjwt
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from nm_core import documents as docproc
 from nm_core.config import get_settings
 from nm_core.db.models.document import Document
 from nm_core.db.models.user import User
@@ -80,6 +81,32 @@ def create_document(
     get_storage().put(doc.storage_key, blank_docx())
     db.flush()
     return {"id": str(doc.id), "title": doc.title}
+
+
+@router.post("/upload")
+async def upload(
+    file: UploadFile, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """Upload a document (PDF/DOCX/text) → store → extract text + AI summary."""
+    account = ensure_personal_account(db, user)
+    from nm_core.billing import feature_allowed
+
+    if not feature_allowed(db, account.id, "documents"):
+        raise HTTPException(status_code=402, detail="document uploads require a paid plan")
+    data = await file.read()
+    title = file.filename or "upload"
+    doc = docproc.DocumentRepository(db).create_upload(
+        account_id=account.id, created_by=user.id, title=title, filename=title,
+        content_type=file.content_type, storage_key="",
+    )
+    doc.storage_key = f"uploads/{account.id}/{doc.id}-{title}"
+    get_storage().put(doc.storage_key, data)
+    db.flush()
+    docproc.process_upload(db, document_id=doc.id)
+    return {
+        "id": str(doc.id), "title": doc.title, "status": doc.status,
+        "summary": doc.summary, "page_count": doc.page_count,
+    }
 
 
 @router.get("/{document_id}/editor")

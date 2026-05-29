@@ -3,7 +3,13 @@ from __future__ import annotations
 
 from nm_core.config import get_settings
 from nm_core.ecourts import offline
-from nm_core.ecourts.models import Case
+from nm_core.ecourts.models import (
+    Case,
+    CaseStub,
+    CourtComplexRef,
+    DistrictRef,
+    StateRef,
+)
 from nm_core.ecourts.resilience import with_circuit_breaker, with_retry, with_semaphore
 from nm_core.ecourts.routing import classify_cnr
 
@@ -55,3 +61,64 @@ def fetch_pdf(url: str, cnr_hint: str | None = None) -> bytes:
     if get_settings().ECOURTS_OFFLINE:
         return offline.offline_fetch_pdf(url)
     return _compose(_transport_fetch_pdf)(url, cnr_hint)
+
+
+# --- district-court search facade (dropdowns + party / case-number search) ---
+def _district():
+    from nm_core.ecourts.district import DistrictCourtClient
+
+    return DistrictCourtClient()
+
+
+def list_states() -> list[StateRef]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_list_states()
+    return _compose(lambda: _district().list_states())()
+
+
+def list_districts(state_code: str) -> list[DistrictRef]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_list_districts(state_code)
+    return _compose(lambda: _district().list_districts(state_code))()
+
+
+def list_court_complexes(*, state_code: str, district_code: str) -> list[CourtComplexRef]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_list_court_complexes(
+            state_code=state_code, district_code=district_code
+        )
+    return _compose(
+        lambda: _district().list_court_complexes(
+            state_code=state_code, district_code=district_code
+        )
+    )()
+
+
+def search_party(
+    *, state_code: str, district_code: str, court_code_arr: str, party_name: str, year: int
+) -> list[CaseStub]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_search_party(party_name=party_name, year=year)
+    return _compose(
+        lambda: _district().search_by_party_name(
+            state_code=state_code, district_code=district_code,
+            court_code_arr=court_code_arr, party_name=party_name, year=year,
+        )
+    )()
+
+
+def search_case_number(
+    *, state_code: str, district_code: str, court_code_arr: str,
+    case_type: str, case_number: str, year: int,
+) -> list[CaseStub]:
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_search_case_number(
+            case_type=case_type, case_number=case_number, year=year
+        )
+    return _compose(
+        lambda: _district().search_by_case_number(
+            state_code=state_code, district_code=district_code,
+            court_code_arr=court_code_arr, case_type=case_type,
+            case_number=case_number, year=year,
+        )
+    )()

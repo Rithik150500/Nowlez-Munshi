@@ -59,6 +59,7 @@ def encode_link_token(user_id: uuid.UUID, *, ttl_seconds: int | None = None) -> 
     payload = {
         "sub": str(user_id),
         "purpose": _LINK_PURPOSE,
+        "jti": uuid.uuid4().hex,  # single-use (consumed via the replay store)
         "iat": int(now.timestamp()),
         "exp": int((now + ttl).timestamp()),
     }

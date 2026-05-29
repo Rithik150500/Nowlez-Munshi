@@ -7,7 +7,17 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from nm_core.ecourts.models import Act, Case, HearingHistoryRow, OrderRef, Party
+from nm_core.ecourts.models import (
+    Act,
+    Case,
+    CaseStub,
+    CourtComplexRef,
+    DistrictRef,
+    HearingHistoryRow,
+    OrderRef,
+    Party,
+    StateRef,
+)
 from nm_core.ecourts.routing import classify_cnr, validate_cnr_shape
 
 _OFFLINE_CASES: dict[str, Case] = {}
@@ -51,3 +61,49 @@ def offline_fetch_case(cnr: str) -> Case:
 
 def offline_fetch_pdf(url: str) -> bytes:
     return b"%PDF-1.4 synthetic offline pdf\n%%EOF\n"
+
+
+# --- search & dropdowns (deterministic synthetic data for dev/tests) ---
+def offline_list_states() -> list[StateRef]:
+    return [
+        StateRef(code="1", name="Demo State", national_code="DL"),
+        StateRef(code="2", name="Other State", national_code="MH"),
+    ]
+
+
+def offline_list_districts(state_code: str) -> list[DistrictRef]:
+    return [DistrictRef(code="1", name="Demo District", state_code=str(state_code))]
+
+
+def offline_list_court_complexes(*, state_code: str, district_code: str) -> list[CourtComplexRef]:
+    return [
+        CourtComplexRef(
+            code="1", name="Demo Court Complex", state_code=str(state_code),
+            district_code=str(district_code), est_code="DLND01",
+        )
+    ]
+
+
+def offline_search_party(*, party_name: str, year: int) -> list[CaseStub]:
+    # 16-char CNRs (6-char establishment + 6 digits + 4-digit year), as fetch_case expects.
+    name = party_name.strip() or "Synthetic"
+    return [
+        CaseStub(
+            cnr=f"DLND01{i:06d}{year}", title=f"{name} vs State",
+            case_number=f"CC/{100 + i}/{year}", court="Demo District Court",
+            filing_year=year, stage="Appearance",
+        )
+        for i in range(1, 3)
+    ]
+
+
+def offline_search_case_number(*, case_type: str, case_number: str, year: int) -> list[CaseStub]:
+    digits = int(case_number) if case_number.isdigit() else 1
+    return [
+        CaseStub(
+            cnr=f"DLND01{digits:06d}{year}",
+            title="Synthetic Petitioner vs State",
+            case_number=f"{case_type}/{case_number}/{year}", court="Demo District Court",
+            filing_year=year, stage="Appearance",
+        )
+    ]

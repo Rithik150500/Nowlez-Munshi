@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -17,8 +17,11 @@ from nm_web.routers import (
     billing,
     cases,
     documents,
+    i18n,
     insights,
     notifications,
+    push,
+    search,
     teams,
 )
 
@@ -33,6 +36,9 @@ app.include_router(insights.router)
 app.include_router(billing.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
+app.include_router(i18n.router)
+app.include_router(search.router)
+app.include_router(push.router)
 
 
 @app.get("/api/health")
@@ -44,6 +50,17 @@ def health(db: Session = Depends(get_db)) -> dict:
     except Exception:  # noqa: BLE001
         db_ok = False
     return {"status": "ok" if db_ok else "degraded", "db": db_ok}
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    """Prometheus text exposition of the in-process metrics registry."""
+    snap = observability.snapshot()
+    lines: list[str] = []
+    for bucket in (snap["counters"], snap["gauges"]):
+        for name, value in bucket.items():
+            lines.append(f"nm_{name.replace('.', '_')} {value}")
+    return Response("\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
 
 
 # Serve the built SPA when present (apps/web/frontend/dist). html=True falls back to

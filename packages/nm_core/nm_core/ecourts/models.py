@@ -58,6 +58,96 @@ class CategoryDetails:
 
 
 @dataclass(frozen=True)
+class CaseStub:
+    """A search-result row — enough to follow up with fetch_case(cnr)."""
+
+    cnr: str
+    title: str
+    case_number: str
+    court: str
+    filing_year: int | None = None
+    stage: str | None = None
+
+
+@dataclass(frozen=True)
+class StateRef:
+    code: str
+    name: str
+    national_code: str
+
+
+@dataclass(frozen=True)
+class DistrictRef:
+    code: str
+    name: str
+    state_code: str
+
+
+@dataclass(frozen=True)
+class CourtComplexRef:
+    code: str
+    name: str
+    state_code: str
+    district_code: str
+    est_code: str = ""
+
+
+@dataclass(frozen=True)
+class PoliceStationRef:
+    code: str
+    name: str
+    district_code: str
+    court_code: str
+    uniform_code: int = 0
+
+
+@dataclass(frozen=True)
+class CaseTypeRef:
+    code: str
+    name: str
+    court_code: str
+
+
+@dataclass(frozen=True)
+class BenchRef:
+    code: str
+    name: str
+    state_code: str
+
+
+@dataclass(frozen=True)
+class CauseListEntry:
+    sr_no: int
+    case_number: str
+    cnr: str | None
+    parties: str
+    advocates: str | None
+    section: str
+    listed_on: date | None
+
+
+@dataclass(frozen=True)
+class CauseList:
+    state_code: str
+    district_code: str
+    court_code: str
+    court_no: str
+    list_date: date
+    flag: str
+    judge: str | None
+    entries: list[CauseListEntry] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class DailyBusiness:
+    cnr: str
+    business_date: date
+    business_text: str
+    next_purpose: str | None
+    next_hearing_date: date | None
+
+
+@dataclass(frozen=True)
 class Case:
     cnr: str
     title: str

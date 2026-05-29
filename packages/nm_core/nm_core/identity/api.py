@@ -16,13 +16,14 @@ from nm_core.identity import otp as _otp
 from nm_core.identity import passwords as _pw
 from nm_core.identity import sessions as _sessions
 from nm_core.identity.delivery import deliver_otp
-from nm_core.identity.errors import InvalidCredentials, PasswordNotSet
+from nm_core.identity.errors import InvalidCredentials, InvalidToken, PasswordNotSet
 from nm_core.identity.repositories import (
     AuditRepository,
     OtpRepository,
     SessionRepository,
     UserRepository,
 )
+from nm_core.replay import consume_once
 
 
 def _login_result(user: User, *, access: str, refresh: str) -> dict:
@@ -186,12 +187,13 @@ def exchange_link_token(
 ) -> dict:
     """Exchange a continuity link token for a normal session (access + refresh)."""
     claims = _jwt.decode_link_token(token)
+    jti = claims.get("jti")
+    if jti and not consume_once(jti, ttl_seconds=get_settings().LINK_TOKEN_TTL_MINUTES * 60):
+        raise InvalidToken("link token already used")
     user_id = uuid.UUID(claims["sub"])
     users = UserRepository(session)
     user = users.get_by_id(user_id)
     if user is None or not user.is_active:
-        from nm_core.identity.errors import InvalidToken
-
         raise InvalidToken("link token refers to an unknown user")
     users.touch_last_login(user.id)
     refresh_raw, _ = _sessions.issue_refresh_token(

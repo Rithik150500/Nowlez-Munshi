@@ -16,32 +16,12 @@ from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.config import get_settings
 from nm_core.ecourts.errors import CNRNotFound, ECourtsError
 from nm_core.ecourts.routing import CNR_REGEX
+from nm_core.i18n import t
 from nm_core.identity.repositories import UserRepository
-
-_HELP = (
-    "🧑‍⚖️ *Nowlez Munshi*\n"
-    "• Send a *CNR* (16 chars) to track a case\n"
-    "• /saved — your case book\n"
-    "• /today, /this_week — upcoming hearings\n"
-    "• /forget <CNR> — stop tracking\n"
-    "• /snooze <CNR> <days> — pause alerts\n"
-    "• /alerts <CNR> <all|orders_only|hearings_only|digest_only>\n"
-    "• /digest_on, /digest_off\n"
-    "• /web — open your case book on the web"
-)
-
-_HELP_HI = (
-    "🧑‍⚖️ *Nowlez Munshi*\n"
-    "• केस ट्रैक करने के लिए *CNR* (16 अक्षर) भेजें\n"
-    "• /saved — आपकी केस बुक\n"
-    "• /today, /this_week — आगामी सुनवाई\n"
-    "• /forget <CNR> — ट्रैक करना बंद करें\n"
-    "• /web — वेब पर अपनी केस बुक खोलें"
-)
 
 
 def _help_for(user) -> str:
-    return _HELP_HI if getattr(user, "locale", "en") == "hi" else _HELP
+    return t("help", getattr(user, "locale", "en"))
 
 
 def _fmt_case(case) -> str:
@@ -105,10 +85,17 @@ def handle_message(
     if cmd == "/web":
         link = _web_link(user)
         return f"📱 Open Nowlez Munshi on the web:\n{link}" if link else "Web app isn't configured."
-    if cmd == "/saved":
-        return _list(
-            cases.list_by_user(user.id), empty="No cases yet. Send a CNR to start tracking."
+    if cmd == "/search":
+        # Structured search needs court pickers — hand off to the web search screen.
+        link = _web_link(user, next_path="/search")
+        if not link:
+            return "Search needs the web app, which isn't configured."
+        return (
+            "🔎 Search by party name or case number needs court selection. "
+            f"Open search on web:\n{link}"
         )
+    if cmd == "/saved":
+        return _list(cases.list_by_user(user.id), empty=t("no_cases", user.locale))
     if cmd == "/today":
         return _hearings(cases, user.id, date.today(), date.today(), "today")
     if cmd == "/this_week":
@@ -124,20 +111,20 @@ def handle_message(
         return _digest(prefs, cases, user.id, True)
     if cmd == "/digest_off":
         return _digest(prefs, cases, user.id, False)
-    return f"Unknown command {cmd}. Send /help."
+    return t("unknown_cmd", user.locale, cmd=cmd)
 
 
 def _track(session: Session, user, cnr: str) -> str:
     try:
         result = tracking.track_case(session, user=user, cnr=cnr, added_via="whatsapp")
     except CNRNotFound:
-        return f"No case found for {cnr}. Double-check the CNR."
+        return t("not_found", user.locale, cnr=cnr)
     except ECourtsError as e:
         return (
             f"Couldn't reach eCourts for {cnr} right now ({type(e).__name__}). "
             "Try again shortly."
         )
-    reply = "✅ Tracking now. I'll alert you on changes.\n\n" + _fmt_case(result.case)
+    reply = t("tracking_now", user.locale) + "\n\n" + _fmt_case(result.case)
     link = _web_link(user, next_path=f"/cases/{cnr}")
     if link:
         reply += f"\n\n📱 Open on web: {link}"

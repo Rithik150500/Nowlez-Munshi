@@ -1,28 +1,31 @@
-"""Fan-out a detected change: always in-app; WhatsApp when policy allows.
+"""Fan-out a detected change: always in-app; WhatsApp/email/web-push when policy allows.
 
-Policy gate for the WhatsApp channel:
+Real-time policy gate (shared by all push channels):
 - alert_level 'all'           → every change type
 - alert_level 'orders_only'   → new_orders only
 - alert_level 'hearings_only' → hearing_date_change only
 - alert_level 'digest_only'   → nothing real-time (digest cron handles it)
 - snooze_until in the future  → suppressed
-- WHATSAPP_DISABLED kill-switch → suppressed
+- WHATSAPP_DISABLED kill-switch → suppresses WhatsApp only
 
-Email/push are deferred (recorded as not-sent). Idempotent per (user, cnr, type, day)
-via the messaging Redis dedup key.
+Idempotent per (user, cnr, type, day) via the messaging Redis dedup key (WhatsApp).
 """
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from nm_core import messaging
+from nm_core import messaging, push
 from nm_core.cases.changes import Change
 from nm_core.db.models.case import Case, CasePreference
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
+from nm_core.email import send_email
 from nm_core.notifications.repository import NotificationRepository
+
+logger = logging.getLogger("nm_core.notifications")
 
 _ALERT_LEVEL_ALLOWS = {
     "all": {"status_change", "hearing_date_change", "new_orders", "disposal", "transfer"},
@@ -32,7 +35,7 @@ _ALERT_LEVEL_ALLOWS = {
 }
 
 
-def _whatsapp_allowed(change: Change, pref: CasePreference | None) -> bool:
+def _realtime_allowed(change: Change, pref: CasePreference | None) -> bool:
     level = pref.alert_level if pref else "all"
     if change.type not in _ALERT_LEVEL_ALLOWS.get(level, set()):
         return False
@@ -53,20 +56,34 @@ def dispatch_change(
     change: Change,
     pref: CasePreference | None = None,
 ) -> Notification:
-    """Record the in-app notification and, if allowed, push a WhatsApp alert."""
+    """Record the in-app notification and fan out to WhatsApp/email/web-push if allowed."""
     channels: list[str] = ["in_app"]
+    title = case.title or case.cnr
+    body = change.summary
 
-    if user.phone and _whatsapp_allowed(change, pref):
-        today = datetime.now(UTC).date().isoformat()
-        wamid = messaging.send_text(
-            session,
-            to_phone=user.phone,
-            body=f"{case.title or case.cnr}\n{change.summary}",
-            user_id=user.id,
-            dedup_key=f"{user.id}:{case.cnr}:{change.type}:{today}",
-        )
-        if wamid is not None:
-            channels.append("whatsapp")
+    if _realtime_allowed(change, pref):
+        if user.phone:
+            today = datetime.now(UTC).date().isoformat()
+            if messaging.enqueue_send_text(
+                to_phone=user.phone,
+                body=f"{title}\n{body}",
+                user_id=user.id,
+                dedup_key=f"{user.id}:{case.cnr}:{change.type}:{today}",
+            ):
+                channels.append("whatsapp")
+        # Email/web-push are best-effort side-channels: a flaky SMTP server or push
+        # endpoint must never roll back the in-app notification or the refresh sweep.
+        if user.email:
+            try:
+                send_email(to=user.email, subject=f"Nowlez Munshi — {title}", body=body)
+                channels.append("email")
+            except Exception:  # noqa: BLE001
+                logger.exception("email alert failed for user %s", user.id)
+        try:
+            if push.notify_user(session, user_id=user.id, title=title, body=body):
+                channels.append("push")
+        except Exception:  # noqa: BLE001
+            logger.exception("web-push alert failed for user %s", user.id)
 
     return NotificationRepository(session).create(
         user_id=user.id,

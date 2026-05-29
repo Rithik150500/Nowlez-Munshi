@@ -70,6 +70,25 @@ export default function Documents() {
           />
           <button onClick={create}>New DOCX</button>
         </div>
+        <div className="row" style={{ marginTop: 8 }}>
+          <input
+            type="file"
+            className="grow"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setErr("");
+              try {
+                await api.uploadDocument(f);
+                await load();
+              } catch (ex) {
+                setErr(ex.message);
+              }
+            }}
+          />
+          <span className="muted">upload PDF/DOCX → summarized</span>
+        </div>
+        {err && <p className="err">{err}</p>}
       </div>
       {docs.length === 0 && <p className="muted">No documents yet.</p>}
       {docs.map((d) => (

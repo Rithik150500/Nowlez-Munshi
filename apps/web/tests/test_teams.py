@@ -1,12 +1,29 @@
 """Web teams: personal account, invite, shared case book, RBAC."""
 from __future__ import annotations
 
+import uuid
+
 CNR = "DLND010000012024"
 
 
 def _auth(client, phone, name="Adv"):
     r = client.post("/api/auth/dev-login", json={"phone": phone, "name": name})
     return {"Authorization": f"Bearer {r.json()['access_token']}"}, r.json()["user"]["id"]
+
+
+def _paid(client, account_id):
+    """Put an account on a tier that allows multiple members (free caps at 1)."""
+    from nm_web.deps import get_db
+
+    from nm_core.billing import SubscriptionRepository
+
+    gen = client.app.dependency_overrides[get_db]()
+    session = next(gen)
+    try:
+        SubscriptionRepository(session).set_tier(uuid.UUID(account_id), "chambers")
+        session.commit()
+    finally:
+        gen.close()
 
 
 def test_personal_account_listed(client):
@@ -24,8 +41,9 @@ def test_invite_and_shared_case_book(client):
     # junior can't see it yet
     assert client.get("/api/cases", headers=junior_h).json()["cases"] == []
 
-    # owner creates a chamber and invites junior
+    # owner creates a chamber (paid tier → multi-member) and invites junior
     acc = client.post("/api/accounts", json={"name": "Chamber"}, headers=owner_h).json()
+    _paid(client, acc["id"])
     inv = client.post(
         f"/api/accounts/{acc['id']}/members",
         json={"phone": "+919100000113", "role": "editor"},
@@ -50,6 +68,7 @@ def test_invite_requires_owner(client):
     owner_h, _ = _auth(client, "+919100000114", "Owner")
     viewer_h, _ = _auth(client, "+919100000115", "Viewer")
     acc = client.post("/api/accounts", json={"name": "C"}, headers=owner_h).json()
+    _paid(client, acc["id"])
     client.post(
         f"/api/accounts/{acc['id']}/members",
         json={"phone": "+919100000115", "role": "viewer"},
