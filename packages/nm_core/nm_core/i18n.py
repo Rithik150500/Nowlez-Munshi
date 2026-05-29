@@ -20,6 +20,8 @@ _BOT: dict[str, dict[str, str]] = {
             "• /snooze <CNR> <days> — pause alerts\n"
             "• /alerts <CNR> <all|orders_only|hearings_only|digest_only>\n"
             "• /digest_on, /digest_off\n"
+            "• /search — find a case by party / number on the web\n"
+            "• send a *case QR photo* to track it\n"
             "• /web — open your case book on the web"
         ),
         "hi": (
@@ -50,6 +52,7 @@ _BOT: dict[str, dict[str, str]] = {
 # Web SPA UI strings.
 _WEB: dict[str, dict[str, str]] = {
     "cases": {"en": "Case book", "hi": "केस बुक"},
+    "search": {"en": "Search", "hi": "खोज"},
     "calendar": {"en": "Calendar", "hi": "कैलेंडर"},
     "ask": {"en": "Ask Munshi", "hi": "मुंशी से पूछें"},
     "documents": {"en": "Documents", "hi": "दस्तावेज़"},

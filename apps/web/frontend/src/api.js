@@ -48,6 +48,18 @@ export const api = {
   calendar: () => req("GET", "/api/calendar"),
   analytics: () => req("GET", "/api/analytics"),
   adminOverview: () => req("GET", "/api/admin/overview"),
+  searchStates: () => req("GET", "/api/search/states"),
+  searchDistricts: (stateCode) =>
+    req("GET", `/api/search/districts?state_code=${encodeURIComponent(stateCode)}`),
+  searchCourtComplexes: (stateCode, districtCode) =>
+    req(
+      "GET",
+      `/api/search/court-complexes?state_code=${encodeURIComponent(stateCode)}&district_code=${encodeURIComponent(districtCode)}`,
+    ),
+  searchParty: (q) => {
+    const p = new URLSearchParams(q).toString();
+    return req("GET", `/api/search/party?${p}`);
+  },
   documents: () => req("GET", "/api/documents"),
   createDocument: (title) => req("POST", "/api/documents", { title }),
   editorConfig: (id) => req("GET", `/api/documents/${id}/editor`),

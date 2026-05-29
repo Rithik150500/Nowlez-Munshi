@@ -85,6 +85,15 @@ def handle_message(
     if cmd == "/web":
         link = _web_link(user)
         return f"📱 Open Nowlez Munshi on the web:\n{link}" if link else "Web app isn't configured."
+    if cmd == "/search":
+        # Structured search needs court pickers — hand off to the web search screen.
+        link = _web_link(user, next_path="/search")
+        if not link:
+            return "Search needs the web app, which isn't configured."
+        return (
+            "🔎 Search by party name or case number needs court selection. "
+            f"Open search on web:\n{link}"
+        )
     if cmd == "/saved":
         return _list(cases.list_by_user(user.id), empty=t("no_cases", user.locale))
     if cmd == "/today":

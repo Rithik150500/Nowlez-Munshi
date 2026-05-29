@@ -10,6 +10,7 @@ import Team from "./Team.jsx";
 import Calendar from "./Calendar.jsx";
 import Admin from "./Admin.jsx";
 import Documents from "./Documents.jsx";
+import Search from "./Search.jsx";
 
 export default function App() {
   const [me, setMe] = useState(null);
@@ -107,6 +108,9 @@ export default function App() {
         >
           {t("cases")}
         </button>
+        <button className={`tab ${tab === "search" ? "active" : ""}`} onClick={() => setTab("search")}>
+          {t("search")}
+        </button>
         <button className={`tab ${tab === "calendar" ? "active" : ""}`} onClick={() => setTab("calendar")}>
           {t("calendar")}
         </button>
@@ -137,6 +141,14 @@ export default function App() {
       {tab === "calendar" && (
         <Calendar
           onOpen={(cnr) => {
+            setTab("cases");
+            setOpenCnr(cnr);
+          }}
+        />
+      )}
+      {tab === "search" && (
+        <Search
+          onTracked={(cnr) => {
             setTab("cases");
             setOpenCnr(cnr);
           }}

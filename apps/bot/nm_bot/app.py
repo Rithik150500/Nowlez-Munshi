@@ -59,9 +59,28 @@ def _process(msg: messaging.IncomingMessage) -> None:
         with session_scope() as session:
             if not messaging.claim_inbound(session, meta_message_id=msg.meta_message_id):
                 return  # Meta retry of an already-handled message
+            text = _resolve_image_cnr(msg) if msg.type == "image" else msg.text
+            if msg.type == "image" and text is None:
+                messaging.enqueue_send_text(
+                    to_phone=msg.from_phone,
+                    body="Couldn't read a case QR from that image. Send the CNR as text instead.",
+                )
+                return
             reply = handle_message(
-                session, from_phone=msg.from_phone, text=msg.text, button_payload=msg.button_payload
+                session, from_phone=msg.from_phone, text=text, button_payload=msg.button_payload
             )
             messaging.enqueue_send_text(to_phone=msg.from_phone, body=reply)
     except Exception:  # noqa: BLE001 — never 500 the webhook; Meta would retry-storm
         logger.exception("failed to process inbound %s", msg.meta_message_id)
+
+
+def _resolve_image_cnr(msg: messaging.IncomingMessage) -> str | None:
+    """Fetch an image attachment and decode a CNR from its QR code (None if unreadable)."""
+    if not msg.media_id:
+        return None
+    try:
+        data = messaging.MetaClient().fetch_media(msg.media_id)
+    except Exception:  # noqa: BLE001 — media fetch failures shouldn't 500 the webhook
+        logger.exception("failed to fetch media %s", msg.media_id)
+        return None
+    return messaging.decode_cnr_from_image(data)

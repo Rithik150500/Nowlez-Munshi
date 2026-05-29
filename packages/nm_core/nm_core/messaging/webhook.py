@@ -33,6 +33,7 @@ class IncomingMessage:
     type: str
     text: str | None = None
     button_payload: str | None = None
+    media_id: str | None = None  # set for image messages (QR-coded CNR intake)
     raw: dict = field(default_factory=dict)
 
 
@@ -51,6 +52,7 @@ def _one_message(m: dict[str, Any]) -> IncomingMessage:
     msg_type = m.get("type", "unknown")
     text = None
     button_payload = None
+    media_id = None
     if msg_type == "text":
         text = (m.get("text") or {}).get("body")
     elif msg_type == "interactive":
@@ -61,6 +63,10 @@ def _one_message(m: dict[str, Any]) -> IncomingMessage:
     elif msg_type == "button":
         button_payload = (m.get("button") or {}).get("payload")
         text = (m.get("button") or {}).get("text")
+    elif msg_type == "image":
+        img = m.get("image") or {}
+        media_id = img.get("id")
+        text = img.get("caption")
     return IncomingMessage(
         meta_message_id=m.get("id", ""),
         from_phone=from_phone,
@@ -68,6 +74,7 @@ def _one_message(m: dict[str, Any]) -> IncomingMessage:
         type=msg_type,
         text=text,
         button_payload=button_payload,
+        media_id=media_id,
         raw=m,
     )
 

@@ -83,6 +83,14 @@ def test_web_command_deep_link(db_session, monkeypatch):
     assert "https://app.nowlez.in/link#token=" in reply
 
 
+def test_search_command_deep_links_to_web(db_session, monkeypatch):
+    from nm_core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "WEB_BASE_URL", "https://app.nowlez.in")
+    reply = _reply(db_session, "/search")
+    assert "/link#token=" in reply and "next=/search" in reply
+
+
 def test_track_reply_includes_web_link(db_session, monkeypatch):
     from nm_core.config import get_settings
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 from nm_core.messaging import errors
 from nm_core.messaging.client import MetaClient
 from nm_core.messaging.idempotency import claim_daily_slot, claim_inbound
+from nm_core.messaging.qr import decode_cnr_from_image
 from nm_core.messaging.queue import enqueue_send_daily_template, enqueue_send_text
 from nm_core.messaging.send import send_daily_template, send_text
 from nm_core.messaging.webhook import (
@@ -21,6 +22,7 @@ __all__ = [
     "MetaClient",
     "claim_daily_slot",
     "claim_inbound",
+    "decode_cnr_from_image",
     "enqueue_send_daily_template",
     "enqueue_send_text",
     "errors",

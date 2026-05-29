@@ -62,6 +62,19 @@ class MetaClient:
             }
         )
 
+    def fetch_media(self, media_id: str) -> bytes:
+        """Two-step Graph media download: resolve the media URL, then GET the bytes."""
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        try:
+            meta = httpx.get(f"{self._base}/{media_id}", headers=headers, timeout=self._timeout)
+            self._raise_for_status(meta)
+            url = meta.json()["url"]
+            blob = httpx.get(url, headers=headers, timeout=self._timeout)
+            self._raise_for_status(blob)
+        except httpx.HTTPError as e:
+            raise MetaTransientError(f"network error: {e}") from e
+        return blob.content
+
     def _send(self, payload: dict) -> str:
         url = f"{self._base}/{self.phone_number_id}/messages"
         try:
