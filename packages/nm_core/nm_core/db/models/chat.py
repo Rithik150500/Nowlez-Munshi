@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from nm_core.db.base import Base
 from nm_core.db.types import JSONBType, UUIDType
+
+
+def _now_utc() -> datetime:
+    return datetime.now(UTC)
 
 
 class ChatThread(Base):
@@ -45,8 +49,13 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     citations: Mapped[list] = mapped_column(JSONBType, nullable=False, default=list)
     tool_calls: Mapped[list] = mapped_column(JSONBType, nullable=False, default=list)
+    # User feedback on an assistant message: 'up' | 'down' | None.
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Microsecond-precision Python-side default so sibling messages in a thread keep a
+    # strict insertion order (a second-precision server default ties them, breaking
+    # ordering + truncate-from-here).
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, default=_now_utc, server_default=func.now()
     )
 
     thread: Mapped[ChatThread] = relationship("ChatThread", back_populates="messages")
