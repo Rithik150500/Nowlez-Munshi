@@ -96,3 +96,6 @@ def _deliver(session: Session, sub: PushSubscription, payload: str) -> bool:
         else:
             logger.warning("web push failed (%s): %s", status, e)
         return False
+    except Exception:  # noqa: BLE001 — transport/network errors must not propagate
+        logger.exception("web push delivery error for %s", sub.endpoint)
+        return False

@@ -74,3 +74,24 @@ def test_dispatch_fans_out_to_email_and_push(db_session):
     # WhatsApp suppressed by kill-switch; email + push still fire.
     assert "email" in n.channels_sent and "push" in n.channels_sent
     assert email.sent_outbox[0]["to"] == "adv@example.test"
+
+
+def test_side_channel_failure_still_persists_in_app(db_session, monkeypatch):
+    user, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000704")
+    user.email = "adv@example.test"
+    db_session.flush()
+    case = _setup_case(db_session, user)
+
+    def _boom(**kw):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr("nm_core.notifications.dispatch.send_email", _boom)
+    monkeypatch.setattr(
+        "nm_core.notifications.dispatch.push.notify_user",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("push down")),
+    )
+    n = dispatch_change(
+        db_session, user=user, case=case, change=Change(type="new_orders", summary="1 new order")
+    )
+    # In-app survives even though email + push raised.
+    assert n.channels_sent == ["in_app"]

@@ -12,6 +12,7 @@ Idempotent per (user, cnr, type, day) via the messaging Redis dedup key (WhatsAp
 """
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -23,6 +24,8 @@ from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
 from nm_core.email import send_email
 from nm_core.notifications.repository import NotificationRepository
+
+logger = logging.getLogger("nm_core.notifications")
 
 _ALERT_LEVEL_ALLOWS = {
     "all": {"status_change", "hearing_date_change", "new_orders", "disposal", "transfer"},
@@ -68,11 +71,19 @@ def dispatch_change(
                 dedup_key=f"{user.id}:{case.cnr}:{change.type}:{today}",
             ):
                 channels.append("whatsapp")
+        # Email/web-push are best-effort side-channels: a flaky SMTP server or push
+        # endpoint must never roll back the in-app notification or the refresh sweep.
         if user.email:
-            send_email(to=user.email, subject=f"Nowlez Munshi — {title}", body=body)
-            channels.append("email")
-        if push.notify_user(session, user_id=user.id, title=title, body=body):
-            channels.append("push")
+            try:
+                send_email(to=user.email, subject=f"Nowlez Munshi — {title}", body=body)
+                channels.append("email")
+            except Exception:  # noqa: BLE001
+                logger.exception("email alert failed for user %s", user.id)
+        try:
+            if push.notify_user(session, user_id=user.id, title=title, body=body):
+                channels.append("push")
+        except Exception:  # noqa: BLE001
+            logger.exception("web-push alert failed for user %s", user.id)
 
     return NotificationRepository(session).create(
         user_id=user.id,
