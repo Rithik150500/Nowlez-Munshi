@@ -105,8 +105,11 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
    search, HC cause-list parsers + indexer + `cause_list_rows` (0015) + CNR
    back-resolution + digest assembly (snapshot ∪ indexed rows) + holiday skip.
    - *Follow-ups:* morning-amendment-diff + Sunday-preview windows; indexer cron schedule.
-3. ⬜ **Wave 3 — Monetization lifecycle:** billing schema, Munshi postpaid, Nowlez
-   subscription machines, cross-product exemption, unified webhook + crons, web billing UI.
+3. ✅ **Wave 3 — Monetization lifecycle** *(core done)*: anniversary cycle math
+   (clamp/restore), Munshi postpaid invoicing (0016) + grace/suspension/resume (0017),
+   Nowlez trial machine + cross-product exemption, unified Razorpay webhook router +
+   `payment_events` replay (0018), daily billing cron, web invoices/trial endpoints.
+   - *Deferred to Wave 5 polish:* referrals, coupons, waitlist (growth-billing, not core).
 4. ⬜ **Wave 4 — AI differentiation:** Tavily search, legal-doc drafting + templates, chat
    feedback/edit/resume.
 5. ⬜ **Wave 5 — Document/search depth + growth polish:** universal FTS, file-tree, OCR,
@@ -124,7 +127,10 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 | Guided search — party · case-number · FIR | ✅ |
 | HC cause-list parsers · indexer · back-resolution · digest union | ✅ |
 | `/label` · `/portfolio` · `/refresh` | ✅ |
+| Munshi postpaid (cycles · invoicing · grace/suspension/resume) | ✅ |
+| Nowlez trial · cross-product exemption | ✅ |
+| Unified Razorpay webhook + replay · billing cron · web invoices/trial | ✅ |
 | Paginated order viewer (WhatsApp) | ⬜ deferred (needs interactive list + media UX polish) |
-| Monetization lifecycle (all) | ⬜ Wave 3 |
+| Referrals · coupons · waitlist (growth-billing) | ⬜ Wave 5 |
 | AI differentiation (Tavily, drafting, chat feedback) | ⬜ Wave 4 |
 | Universal FTS · file-tree · OCR · drip · GDPR export · richer re-engage · ICS · voice · admin breadth · client entity | ⬜ Wave 5 |
