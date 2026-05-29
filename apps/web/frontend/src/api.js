@@ -42,4 +42,6 @@ export const api = {
   createAccount: (name) => req("POST", "/api/accounts", { name }),
   members: (id) => req("GET", `/api/accounts/${id}/members`),
   invite: (id, phone, role) => req("POST", `/api/accounts/${id}/members`, { phone, role }),
+  calendar: () => req("GET", "/api/calendar"),
+  analytics: () => req("GET", "/api/analytics"),
 };
