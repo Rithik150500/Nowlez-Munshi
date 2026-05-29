@@ -141,6 +141,10 @@ class Settings(BaseSettings):
     AI_REQUEST_TIMEOUT_SECONDS: float = 60.0
     AI_MAX_TOOL_ITERATIONS: int = 6
     AI_HISTORY_TURNS: int = 10  # prior thread turns fed back as context
+    # Tavily web search for the AI Munshi. No key → the search_web tool is disabled
+    # (the agent answers from the case book only).
+    TAVILY_API_KEY: str = ""
+    TAVILY_MAX_RESULTS: int = 5
 
     def model_post_init(self, __context: object) -> None:
         prod = _is_production_env()

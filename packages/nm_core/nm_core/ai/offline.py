@@ -8,8 +8,12 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
+from nm_core.ai import tavily
+
 # Non-anchored CNR finder (routing.CNR_REGEX is anchored for full-string validation).
 _CNR_IN_TEXT = re.compile(r"[A-Z]{2}[A-Z]{2}[A-Z0-9]{12}")
+_WEB_HINTS = ("search the web", "latest", "recent judgment", "news", "look up online",
+              "on the web")
 
 
 def _fmt_case(d: dict) -> str:
@@ -25,6 +29,16 @@ def run_agent(
     *, question: str, history: list[dict], execute_tool: Callable[[str, dict], dict]
 ) -> str:
     q = question.lower()
+
+    # Web search: only when Tavily is configured and the question asks for it.
+    if tavily.is_available() and any(h in q for h in _WEB_HINTS):
+        data = execute_tool("search_web", {"query": question})
+        results = data.get("results", [])
+        if results:
+            lines = [f"- {r['title']}: {r['url']}" for r in results if r.get("url")]
+            return "From the web:\n" + "\n".join(lines)
+        return "I couldn't find anything on the web for that."
+
     match = _CNR_IN_TEXT.search(question.upper())
 
     if match:

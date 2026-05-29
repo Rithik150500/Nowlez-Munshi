@@ -76,6 +76,7 @@ def ask(
 
     observability.incr(f"ai.answer.{mode}")
     citations = _citations(session, ctx, text)
+    web_sources = _dedup_sources(ctx.web_sources)
     repo.add_message(
         thread.id,
         role="assistant",
@@ -90,4 +91,16 @@ def ask(
         mode=mode,
         tool_calls=ctx.calls,
         thread_id=str(thread.id),
+        web_sources=web_sources,
     )
+
+
+def _dedup_sources(sources: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    out: list[dict] = []
+    for s in sources:
+        url = s.get("url")
+        if url and url not in seen:
+            seen.add(url)
+            out.append(s)
+    return out

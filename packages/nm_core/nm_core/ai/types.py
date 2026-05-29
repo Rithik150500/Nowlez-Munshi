@@ -22,6 +22,7 @@ class Answer:
     mode: str = "offline"  # "gemini" | "offline"
     tool_calls: list[dict] = field(default_factory=list)
     thread_id: str | None = None
+    web_sources: list[dict] = field(default_factory=list)  # [{title, url}] from search_web
 
     def to_dict(self) -> dict:
         return {
@@ -31,4 +32,5 @@ class Answer:
             "mode": self.mode,
             "tool_calls": self.tool_calls,
             "thread_id": self.thread_id,
+            "web_sources": self.web_sources,
         }

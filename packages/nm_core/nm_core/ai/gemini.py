@@ -6,7 +6,7 @@ from collections.abc import Callable
 import httpx
 
 from nm_core.ai.context import SYSTEM_PROMPT
-from nm_core.ai.tools import TOOL_DECLARATIONS
+from nm_core.ai.tools import tool_declarations
 from nm_core.config import get_settings
 
 _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -31,7 +31,7 @@ def _generate(contents: list[dict]) -> dict:
     payload = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": contents,
-        "tools": [{"functionDeclarations": TOOL_DECLARATIONS}],
+        "tools": [{"functionDeclarations": tool_declarations()}],
         "generationConfig": {"temperature": 1.0},
     }
     headers = {"x-goog-api-key": s.GEMINI_API_KEY, "Content-Type": "application/json"}
