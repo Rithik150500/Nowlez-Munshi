@@ -22,6 +22,20 @@ def test_link_token_exchange_roundtrip(db_session):
     assert result["refresh_token"]
 
 
+def test_link_token_is_single_use(db_session, monkeypatch):
+    import fakeredis
+
+    from nm_core import replay
+
+    monkeypatch.setattr(replay, "_client", fakeredis.FakeStrictRedis())
+    user, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000092", name="Adv")
+    token = create_link_token(user.id)
+    exchange_link_token(db_session, token=token)  # first use OK
+    with pytest.raises(InvalidToken, match="already used"):
+        exchange_link_token(db_session, token=token)  # replay rejected
+    monkeypatch.setattr(replay, "_client", None)
+
+
 def test_link_token_rejected_as_access_token(db_session):
     import uuid
 
