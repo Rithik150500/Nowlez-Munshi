@@ -7,10 +7,12 @@ Three modes share one court-selection spine:
             → (FIR only: pick POLICE STATION)
             → type the mode-specific query → tap a RESULT → track.
 
-State is persisted in nm_core.conversation. The hard-won legacy detail: party /
-case / FIR search needs the court complex's *establishment code* (``est_code``) as
-``court_code_arr``, while the police-station and case-type lookups need the complex
-``code`` — so we carry both.
+State is persisted in nm_core.conversation. The hard-won legacy detail: the eCourts
+search AND listing endpoints (party / case / FIR search, police-station + case-type
+lookups) all key on the court complex's *establishment code* (``est_code``), NOT the
+full complex ``code`` — using the complex code silently returns zero results. We carry
+both on the state (``court_code`` = complex code, ``court_code_arr`` = est_code) and
+pass ``court_code_arr`` to every eCourts call.
 """
 from __future__ import annotations
 
@@ -85,8 +87,8 @@ def handle_button(session: Session, user, payload: str) -> str:
         rows = ecourts.list_court_complexes(
             state_code=state["state_code"], district_code=val
         )
-        # carry both the complex code (for police-station lookup) and the est_code
-        # (for the actual search) — party/case/FIR search needs est_code, not code.
+        # carry both the complex code and the est_code; every eCourts search/listing
+        # call uses the est_code (court_code_arr), never the complex code.
         return _send_list(
             session, user, "Pick the court complex:", "Choose court",
             [{"id": f"{_PREFIX}complex:{c.code}|{c.est_code}", "title": c.name} for c in rows],
@@ -120,12 +122,14 @@ def _after_complex(session: Session, user, state: dict) -> str:
         state["step"] = "caseno_input"
         conversation.set_state(user.id, state)
         return "Type the *case type, number and year* (e.g. `CC 123 2024`):"
-    # FIR: needs a police station first
+    # FIR: needs a police station first. The listing endpoint — like the search
+    # endpoints — keys on the establishment code, not the full complex code
+    # (the same est_code-not-complex-code fix that applies to party/case search).
     state["step"] = "police"
     conversation.set_state(user.id, state)
     stations = ecourts.list_police_stations(
         state_code=state["state_code"], district_code=state["district_code"],
-        court_code=state["court_code"],
+        court_code=state["court_code_arr"],
     )
     return _send_list(
         session, user, "Pick the police station:", "Choose station",

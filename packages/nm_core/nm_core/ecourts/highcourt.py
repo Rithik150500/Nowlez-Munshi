@@ -15,6 +15,7 @@ from nm_core.ecourts.models import (
     BenchRef,
     Case,
     CaseStub,
+    CaseTypeRef,
     HCBenchSitting,
     HCCauseListIndex,
     HCCauseListPDFRow,
@@ -81,6 +82,16 @@ class HighCourtClient:
              "case_type": str(case_type), "year": str(year), **_ENG},
         )
         return xp.parse_case_number_search(resp)
+
+    def list_case_types(
+        self, *, state_code: str, district_code: str, court_code: str
+    ) -> list[CaseTypeRef]:
+        resp = self._session.call(
+            "caseNumberWebService.php",
+            {"state_code": str(state_code), "dist_code": str(district_code),
+             "court_code": str(court_code), **_ENG},
+        )
+        return xp.parse_case_types(resp, court_code=str(court_code))
 
     # --- cause lists ---
     def list_bench_sittings(

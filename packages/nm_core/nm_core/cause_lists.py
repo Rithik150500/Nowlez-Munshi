@@ -105,6 +105,27 @@ def _upsert(
     return 1
 
 
+def _case_type_lookup(state_code: str, district_code: str, court_code: str) -> dict[str, str]:
+    """Map a case-type abbreviation (e.g. 'WP') → the numeric NIC code eCourts expects.
+
+    HC PDFs print the abbreviation, but caseNumberSearch.php requires the numeric code,
+    so we build the map from list_case_types names like 'WP - Writ Petition'. Best-effort:
+    an empty map means no rows resolve this run (vs. silently querying with a bad type)."""
+    try:
+        types = ecourts.hc_list_case_types(
+            state_code=state_code, district_code=district_code, court_code=court_code
+        )
+    except ECourtsError:
+        return {}
+    lookup: dict[str, str] = {}
+    for t in types:
+        # The abbreviation is the leading token of the display name ("WP - Writ Petition").
+        abbrev = re.split(r"[\s\-/]", t.name.strip(), maxsplit=1)[0].upper()
+        if abbrev:
+            lookup.setdefault(abbrev, t.code)
+    return lookup
+
+
 def back_resolve_cnrs(
     session: Session, *, state_code: str, district_code: str,
     court_code: str, list_date: date, limit: int = 200,
@@ -117,21 +138,28 @@ def back_resolve_cnrs(
             CauseListRow.case_number != "",
         ).limit(limit)
     ).scalars().all()
+    if not rows:
+        return 0
+    type_lookup = _case_type_lookup(state_code, district_code, court_code)
     resolved = 0
     for row in rows:
         parsed = parse_case_number(row.case_number)
         if parsed is None:
             continue
-        case_type, number, year = parsed
+        abbrev, number, year = parsed
+        type_code = type_lookup.get(abbrev.upper())
+        if type_code is None:
+            continue  # untranslatable abbreviation — skip rather than query with a bad type
         try:
             hits = ecourts.hc_search_case_number(
                 state_code=state_code, district_code=district_code,
-                court_code_arr=court_code, case_type=case_type,
+                court_code_arr=court_code, case_type=type_code,
                 case_number=number, year=year,
             )
         except ECourtsError:
             continue  # leave cnr NULL; a later run can retry
-        if hits and hits[0].cnr:
+        # Only bind on an unambiguous single match — never guess between candidates.
+        if len(hits) == 1 and hits[0].cnr:
             row.cnr = hits[0].cnr
             resolved += 1
     session.flush()
