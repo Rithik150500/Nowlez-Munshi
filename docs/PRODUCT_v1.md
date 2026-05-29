@@ -67,7 +67,7 @@
 | **M1 — Spine + tracking** | config, db, identity (phone-OTP, JWT, refresh) | ✅ done |
 | **M2 — Both doors + alerts** | ecourts, cases + change classifier, messaging, notifications; worker (refresh sweep), bot (WhatsApp commands), web (REST API + React SPA), unified alerts → **Bet 3** | ✅ done |
 | **M3 — AI Munshi everywhere** | agentic (function-calling) Q&A + threads on web **and** WhatsApp, citations, offline agent, parity test → **Bet 1** | ✅ done |
-| **M4 — Continuity + full practice ops** | account linking/deep-links (**Bet 2**) + docs, calendar, teams, growth, voice, admin | planned |
+| **M4 — Continuity + full practice ops** | deep-link handoff (**Bet 2**), teams/RBAC, calendar+analytics, documents (PDF summaries + OnlyOffice DOCX), growth (onboarding/bilingual/re-engagement/email), billing scaffolding, voice, admin | ✅ done |
 | **M5 — Harden + go-live** | observability for every silent-failure mode; clean launch; decommission legacy | planned |
 
 ## 6. Guiding principle
