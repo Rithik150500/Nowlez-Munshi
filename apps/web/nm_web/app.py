@@ -19,6 +19,7 @@ from nm_web.routers import (
     documents,
     i18n,
     insights,
+    library,
     notifications,
     push,
     search,
@@ -38,6 +39,7 @@ app.include_router(admin.router)
 app.include_router(documents.router)
 app.include_router(i18n.router)
 app.include_router(search.router)
+app.include_router(library.router)
 app.include_router(push.router)
 
 
