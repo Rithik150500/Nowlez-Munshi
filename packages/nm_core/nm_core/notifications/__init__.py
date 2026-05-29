@@ -1,3 +1,7 @@
-"""Channel-agnostic dispatch: in-app + email + WhatsApp + push fan-out.
+"""Cross-channel notification dispatch + the in-app feed repository."""
+from __future__ import annotations
 
-Phase: see docs/TARGET_ARCHITECTURE.md. Stub — implementation pending."""
+from nm_core.notifications.dispatch import dispatch_change, dispatch_changes
+from nm_core.notifications.repository import NotificationRepository
+
+__all__ = ["NotificationRepository", "dispatch_change", "dispatch_changes"]

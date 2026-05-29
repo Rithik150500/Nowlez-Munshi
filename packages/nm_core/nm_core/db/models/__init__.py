@@ -5,6 +5,7 @@ from nm_core.db.models.audit import AuditLog
 from nm_core.db.models.auth import AuthSession, OtpCode
 from nm_core.db.models.case import Case, CaseOrder, CasePreference
 from nm_core.db.models.messaging import MessageLog, OutboundMessage
+from nm_core.db.models.notification import Notification
 from nm_core.db.models.user import User
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "CaseOrder",
     "CasePreference",
     "MessageLog",
+    "Notification",
     "OutboundMessage",
     "OtpCode",
     "User",
