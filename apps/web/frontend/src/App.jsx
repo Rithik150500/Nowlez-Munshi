@@ -5,6 +5,7 @@ import CaseBook from "./CaseBook.jsx";
 import CaseDetail from "./CaseDetail.jsx";
 import Notifications from "./Notifications.jsx";
 import Chat from "./Chat.jsx";
+import Team from "./Team.jsx";
 
 export default function App() {
   const [me, setMe] = useState(null);
@@ -90,6 +91,9 @@ export default function App() {
         <button className={`tab ${tab === "alerts" ? "active" : ""}`} onClick={() => setTab("alerts")}>
           Alerts
         </button>
+        <button className={`tab ${tab === "team" ? "active" : ""}`} onClick={() => setTab("team")}>
+          Chamber
+        </button>
       </div>
       {tab === "cases" &&
         (openCnr ? (
@@ -99,6 +103,7 @@ export default function App() {
         ))}
       {tab === "chat" && <Chat />}
       {tab === "alerts" && <Notifications />}
+      {tab === "team" && <Team />}
     </div>
   );
 }

@@ -38,4 +38,8 @@ export const api = {
   markRead: (id) => req("POST", `/api/notifications/${id}/read`),
   ask: (question, thread_id) => req("POST", "/api/ask", { question, thread_id }),
   exchangeLink: (token) => req("POST", "/api/auth/link", { token }),
+  accounts: () => req("GET", "/api/accounts"),
+  createAccount: (name) => req("POST", "/api/accounts", { name }),
+  members: (id) => req("GET", `/api/accounts/${id}/members`),
+  invite: (id, phone, role) => req("POST", `/api/accounts/${id}/members`, { phone, role }),
 };

@@ -54,6 +54,7 @@ export default function CaseBook({ onOpen }) {
           <h3>
             {c.title || c.cnr}
             <span className="badge">{c.added_via}</span>
+            {c.mine === false && <span className="badge">shared</span>}
           </h3>
           <div className="muted">{c.cnr} · {c.court || "—"}</div>
           <div>Stage: {c.stage || "—"} · Next hearing: {c.next_hearing_date || "—"}</div>

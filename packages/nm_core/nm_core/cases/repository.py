@@ -30,6 +30,34 @@ class CaseRepository:
             ).scalars()
         )
 
+    def list_visible(self, user_ids: set[uuid.UUID], *, limit: int = 500) -> list[Case]:
+        """Cases owned by any of these users (the team case book)."""
+        return list(
+            self.s.execute(
+                select(Case)
+                .where(Case.user_id.in_(user_ids))
+                .order_by(Case.created_at.desc())
+                .limit(limit)
+            ).scalars()
+        )
+
+    def get_visible(
+        self, user_ids: set[uuid.UUID], cnr: str, *, prefer: uuid.UUID | None = None
+    ) -> Case | None:
+        """A case by CNR among the given users — preferring ``prefer``'s own copy."""
+        rows = list(
+            self.s.execute(
+                select(Case).where(Case.user_id.in_(user_ids), Case.cnr == cnr)
+            ).scalars()
+        )
+        if not rows:
+            return None
+        if prefer is not None:
+            for c in rows:
+                if c.user_id == prefer:
+                    return c
+        return rows[0]
+
     def get_due_for_refresh(self, *, limit: int = 100) -> list[Case]:
         """Refresh-eligible cases, never-refreshed first (NULLS FIRST)."""
         return list(

@@ -12,6 +12,7 @@ from nm_core.cases import CasePreferenceRepository, CaseRepository
 from nm_core.cases.changes import Change
 from nm_core.db.models.user import User
 from nm_core.ecourts.errors import CNRMalformed, CNRNotFound, ECourtsError
+from nm_core.teams import accessible_user_ids
 from nm_web import serializers
 from nm_web.deps import get_current_user, get_db
 
@@ -35,8 +36,12 @@ def _changes(changes: list[Change]) -> list[dict]:
 
 @router.get("")
 def list_cases(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
-    cases = CaseRepository(db).list_by_user(user.id)
-    return {"cases": [serializers.case_summary(c) for c in cases]}
+    # Team-aware: the chamber's shared case book (own + co-members'), each flagged `mine`.
+    visible = accessible_user_ids(db, user)
+    cases = CaseRepository(db).list_visible(visible)
+    return {
+        "cases": [{**serializers.case_summary(c), "mine": c.user_id == user.id} for c in cases]
+    }
 
 
 @router.post("")
@@ -60,7 +65,7 @@ def get_case(
     cnr: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> dict:
     repo = CaseRepository(db)
-    case = repo.get_by_cnr(user.id, cnr.upper())
+    case = repo.get_visible(accessible_user_ids(db, user), cnr.upper(), prefer=user.id)
     if case is None:
         raise HTTPException(status_code=404, detail="case not found")
     return serializers.case_detail(case, repo.list_orders(case.id))
