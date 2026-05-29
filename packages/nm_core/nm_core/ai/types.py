@@ -23,6 +23,7 @@ class Answer:
     tool_calls: list[dict] = field(default_factory=list)
     thread_id: str | None = None
     web_sources: list[dict] = field(default_factory=list)  # [{title, url}] from search_web
+    documents: list[dict] = field(default_factory=list)  # [{storage_key, filename}] drafted
 
     def to_dict(self) -> dict:
         return {
@@ -33,4 +34,5 @@ class Answer:
             "tool_calls": self.tool_calls,
             "thread_id": self.thread_id,
             "web_sources": self.web_sources,
+            "documents": self.documents,
         }

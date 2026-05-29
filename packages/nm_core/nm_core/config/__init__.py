@@ -145,6 +145,12 @@ class Settings(BaseSettings):
     # (the agent answers from the case book only).
     TAVILY_API_KEY: str = ""
     TAVILY_MAX_RESULTS: int = 5
+    # Legal-document drafting (docx-js via a sandboxed Node subprocess). Empty
+    # DOCX_NODE_BIN or a missing Node runtime disables the draft_document tool.
+    DOCX_NODE_BIN: str = "node"
+    DOCX_SUBPROCESS_TIMEOUT_SECONDS: int = 30
+    DOCX_SUBPROCESS_MAX_MEMORY_MB: int = 128
+    DOCX_MAX_CODE_SIZE_BYTES: int = 1024 * 1024  # 1 MB
 
     def model_post_init(self, __context: object) -> None:
         prod = _is_production_env()

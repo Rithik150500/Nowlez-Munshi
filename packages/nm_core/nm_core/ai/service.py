@@ -92,6 +92,7 @@ def ask(
         tool_calls=ctx.calls,
         thread_id=str(thread.id),
         web_sources=web_sources,
+        documents=list(ctx.documents),
     )
 
 
