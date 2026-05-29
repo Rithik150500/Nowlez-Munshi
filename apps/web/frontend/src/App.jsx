@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, getToken, setToken } from "./api.js";
+import { loadCatalog, t } from "./i18n.js";
 import Login from "./Login.jsx";
 import CaseBook from "./CaseBook.jsx";
 import CaseDetail from "./CaseDetail.jsx";
@@ -47,13 +48,22 @@ export default function App() {
       return;
     }
     try {
-      setMe(await api.me());
+      const m = await api.me();
+      await loadCatalog(m.locale);
+      setMe(m);
     } catch {
       setToken(null);
       setMe(null);
     } finally {
       setReady(true);
     }
+  };
+
+  const switchLocale = async (loc) => {
+    if (!me || loc === me.locale) return;
+    const m = await api.updateProfile({ locale: loc });
+    await loadCatalog(m.locale);
+    setMe(m);
   };
   useEffect(() => {
     loadMe();
@@ -73,8 +83,17 @@ export default function App() {
         <span className="brand">🧑‍⚖️ Nowlez Munshi</span>
         <span className="row">
           <span className="muted">{me.name || me.phone}</span>
+          <select
+            className="ghost"
+            value={me.locale || "en"}
+            onChange={(e) => switchLocale(e.target.value)}
+            aria-label="Language"
+          >
+            <option value="en">EN</option>
+            <option value="hi">हिं</option>
+          </select>
           <button className="ghost" onClick={logout}>
-            Logout
+            {t("logout")}
           </button>
         </span>
       </div>
@@ -86,22 +105,22 @@ export default function App() {
             setOpenCnr(null);
           }}
         >
-          Case book
+          {t("cases")}
         </button>
         <button className={`tab ${tab === "calendar" ? "active" : ""}`} onClick={() => setTab("calendar")}>
-          Calendar
+          {t("calendar")}
         </button>
         <button className={`tab ${tab === "chat" ? "active" : ""}`} onClick={() => setTab("chat")}>
-          Ask Munshi
+          {t("ask")}
         </button>
         <button className={`tab ${tab === "docs" ? "active" : ""}`} onClick={() => setTab("docs")}>
-          Documents
+          {t("documents")}
         </button>
         <button className={`tab ${tab === "alerts" ? "active" : ""}`} onClick={() => setTab("alerts")}>
-          Alerts
+          {t("alerts")}
         </button>
         <button className={`tab ${tab === "team" ? "active" : ""}`} onClick={() => setTab("team")}>
-          Chamber
+          {t("chamber")}
         </button>
         {me.is_admin && (
           <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>

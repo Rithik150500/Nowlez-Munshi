@@ -34,6 +34,14 @@ def test_help_is_localized(db_session):
     assert "केस" in _reply(db_session, "/help")  # Hindi help
 
 
+def test_unknown_command_localized(db_session):
+    _reply(db_session, "/help")  # creates the user
+    user = UserRepository(db_session).get_by_phone(PHONE)
+    user.locale = "hi"
+    db_session.flush()
+    assert "अज्ञात" in _reply(db_session, "/bogus")  # Hindi "unknown"
+
+
 def test_saved_lists_cases(db_session):
     _reply(db_session, CNR)
     assert CNR in _reply(db_session, "/saved")

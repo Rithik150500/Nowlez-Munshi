@@ -17,6 +17,7 @@ from nm_web.routers import (
     billing,
     cases,
     documents,
+    i18n,
     insights,
     notifications,
     teams,
@@ -33,6 +34,7 @@ app.include_router(insights.router)
 app.include_router(billing.router)
 app.include_router(admin.router)
 app.include_router(documents.router)
+app.include_router(i18n.router)
 
 
 @app.get("/api/health")

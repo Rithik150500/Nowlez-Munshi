@@ -28,6 +28,8 @@ export const api = {
   verify: (otp_id, code, name) => req("POST", "/api/auth/verify", { otp_id, code, name }),
   devLogin: (phone, name) => req("POST", "/api/auth/dev-login", { phone, name }),
   me: () => req("GET", "/api/auth/me"),
+  updateProfile: (body) => req("PUT", "/api/auth/me", body),
+  i18n: (locale) => req("GET", `/api/i18n?locale=${encodeURIComponent(locale || "en")}`),
   listCases: () => req("GET", "/api/cases"),
   addCase: (cnr) => req("POST", "/api/cases", { cnr }),
   getCase: (cnr) => req("GET", `/api/cases/${cnr}`),
