@@ -7,6 +7,7 @@ the web layer guards endpoints with them.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,6 +15,9 @@ from sqlalchemy.orm import Session
 from nm_core.db.models.account import Membership
 from nm_core.db.models.billing import Subscription
 from nm_core.db.models.case import Case
+
+TRIAL_DAYS = 30
+TRIAL_TIER = "chambers"
 
 # tier → {max_cases, max_members (None = unlimited), feature set}
 TIERS: dict[str, dict] = {
@@ -39,6 +43,15 @@ class SubscriptionRepository:
             .limit(1)
         ).scalar_one_or_none()
 
+    def get_latest(self, account_id: uuid.UUID) -> Subscription | None:
+        """Most recent subscription regardless of status (active / trialing / expired)."""
+        return self.s.execute(
+            select(Subscription)
+            .where(Subscription.account_id == account_id)
+            .order_by(Subscription.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+
     def set_tier(
         self, account_id: uuid.UUID, tier: str, *, provider_ref: str | None = None
     ) -> Subscription:
@@ -57,9 +70,63 @@ class SubscriptionRepository:
         return sub
 
 
-def effective_tier(session: Session, account_id: uuid.UUID) -> str:
-    sub = SubscriptionRepository(session).get_for_account(account_id)
-    return sub.tier if sub else "free"
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def effective_tier(
+    session: Session, account_id: uuid.UUID, *, now: datetime | None = None
+) -> str:
+    """The account's current tier — honoring an active paid subscription OR a live
+    trial (status='trialing' with period_end in the future). Else 'free'."""
+    sub = SubscriptionRepository(session).get_latest(account_id)
+    if sub is None:
+        return "free"
+    now = now or datetime.now(UTC)
+    if sub.status == "active":
+        return sub.tier
+    if sub.status == "trialing" and sub.period_end is not None and _aware(sub.period_end) > now:
+        return sub.tier
+    return "free"
+
+
+def start_trial(
+    session: Session, account_id: uuid.UUID, *,
+    tier: str = TRIAL_TIER, days: int = TRIAL_DAYS, now: datetime | None = None,
+) -> Subscription:
+    """Start a time-boxed trial (default: 30-day Chambers)."""
+    now = now or datetime.now(UTC)
+    sub = Subscription(
+        account_id=account_id, tier=tier, status="trialing",
+        period_start=now, period_end=now + timedelta(days=days),
+    )
+    session.add(sub)
+    session.flush()
+    return sub
+
+
+def expire_lapsed_trials(session: Session, *, now: datetime | None = None) -> int:
+    """Mark trials whose period_end has passed as 'expired' (day-31 fallback to free)."""
+    now = now or datetime.now(UTC)
+    trials = session.execute(
+        select(Subscription).where(Subscription.status == "trialing")
+    ).scalars()
+    expired = 0
+    for sub in trials:
+        if sub.period_end is not None and _aware(sub.period_end) <= now:
+            sub.status = "expired"
+            expired += 1
+    session.flush()
+    return expired
+
+
+def has_active_nowlez_benefit(session: Session, user_id: uuid.UUID) -> bool:
+    """True if any account the user belongs to has a non-free effective tier — i.e. a
+    paid Nowlez subscription OR a live trial. Drives the cross-product exemption."""
+    account_ids = session.execute(
+        select(Membership.account_id).where(Membership.user_id == user_id)
+    ).scalars()
+    return any(effective_tier(session, acc_id) != "free" for acc_id in account_ids)
 
 
 def feature_allowed(session: Session, account_id: uuid.UUID, feature: str) -> bool:

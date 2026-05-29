@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from nm_core.billing import has_active_nowlez_benefit
 from nm_core.billing.cycles import compute_cycle_window, is_anniversary
 from nm_core.db.models.case import Case
 from nm_core.db.models.munshi_invoice import MunshiInvoice
@@ -37,6 +38,10 @@ def generate_invoice(
 
     Returns None if the user isn't on postpaid. Idempotent per cycle end."""
     if user.billing_anniversary_day is None:
+        return None
+    # Cross-product exemption: don't charge Munshi postpaid while the user has an
+    # active paid Nowlez subscription or a live trial (the most product-defining rule).
+    if has_active_nowlez_benefit(session, user.id):
         return None
     today = today or date.today()
     # cycles.compute_cycle_window uses only the day-of-month; January always has 31 days.
@@ -79,8 +84,8 @@ def generate_due_invoices(session: Session, *, today: date | None = None) -> int
                 MunshiInvoice.user_id == user.id, MunshiInvoice.cycle_end == end
             )
         ).scalar_one_or_none()
-        generate_invoice(session, user=user, today=today)
-        if before is None:
+        invoice = generate_invoice(session, user=user, today=today)
+        if invoice is not None and before is None:  # created now (not exempt, not dup)
             generated += 1
     return generated
 
