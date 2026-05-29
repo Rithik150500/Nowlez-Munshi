@@ -43,6 +43,11 @@ class User(Base):
     # Day-of-month (1–31) the user is billed for Munshi postpaid. Null = not on
     # postpaid. Clamped to month length at cycle time (see billing.cycles).
     billing_anniversary_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Set when an unpaid postpaid invoice passes its grace window; cleared on payment.
+    # The refresh sweep skips suspended users (no per-case flag clobbering).
+    billing_suspended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

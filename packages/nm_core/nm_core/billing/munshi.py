@@ -8,7 +8,7 @@ re-running the cron is safe.
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from nm_core.db.models.munshi_invoice import MunshiInvoice
 from nm_core.db.models.user import User
 
 RATE_PER_CASE_INR = 10
+GRACE_DAYS = 7  # days past the invoice cycle-end before the user is suspended
 
 
 def count_billable_cases(session: Session, user_id: uuid.UUID) -> int:
@@ -82,3 +83,47 @@ def generate_due_invoices(session: Session, *, today: date | None = None) -> int
         if before is None:
             generated += 1
     return generated
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def mark_invoice_paid(
+    session: Session, invoice: MunshiInvoice, *, provider_ref: str | None = None,
+    now: datetime | None = None,
+) -> None:
+    """Mark an invoice paid and resume the user if they were suspended for non-payment."""
+    now = now or datetime.now(UTC)
+    invoice.status = "paid"
+    invoice.paid_at = now
+    if provider_ref:
+        invoice.provider_ref = provider_ref
+    user = session.get(User, invoice.user_id)
+    if user is not None and user.billing_suspended_at is not None:
+        user.billing_suspended_at = None  # resume — sweep will refresh again
+    session.flush()
+
+
+def run_grace_suspension(
+    session: Session, *, now: datetime | None = None, grace_days: int = GRACE_DAYS
+) -> dict[str, int]:
+    """Suspend users whose unpaid invoice has passed its grace window. Returns counts.
+
+    Suspension is a user-level flag (the refresh sweep skips suspended users); the
+    invoice is marked 'suspended'. Idempotent — already-suspended users are skipped."""
+    now = now or datetime.now(UTC)
+    overdue = session.execute(
+        select(MunshiInvoice).where(MunshiInvoice.status == "pending")
+    ).scalars()
+    suspended = 0
+    for invoice in overdue:
+        if now < _aware(invoice.cycle_end) + timedelta(days=grace_days):
+            continue  # still within grace
+        invoice.status = "suspended"
+        user = session.get(User, invoice.user_id)
+        if user is not None and user.billing_suspended_at is None:
+            user.billing_suspended_at = now
+            suspended += 1
+    session.flush()
+    return {"suspended": suspended}
