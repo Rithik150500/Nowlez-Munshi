@@ -36,6 +36,15 @@ TOOL_DECLARATIONS = [
             "required": ["cnr"],
         },
     },
+    {
+        "name": "get_order_text",
+        "description": "Read the AI summaries of a case's order documents by CNR.",
+        "parameters": {
+            "type": "object",
+            "properties": {"cnr": {"type": "string", "description": "16-char CNR"}},
+            "required": ["cnr"],
+        },
+    },
 ]
 
 
@@ -59,6 +68,8 @@ class ToolContext:
             return self._get_case(str(args.get("cnr", "")).upper())
         if name == "get_orders":
             return self._get_orders(str(args.get("cnr", "")).upper())
+        if name == "get_order_text":
+            return self._get_order_text(str(args.get("cnr", "")).upper())
         return {"error": f"unknown tool {name}"}
 
     def _list_cases(self) -> dict:
@@ -113,5 +124,22 @@ class ToolContext:
                     "url": o.order_url,
                 }
                 for o in orders
+            ],
+        }
+
+    def _get_order_text(self, cnr: str) -> dict:
+        case = self.repo.get_by_cnr(self.user_id, cnr)
+        if case is None:
+            return {"error": f"no tracked case {cnr}"}
+        self._cite(case)
+        return {
+            "cnr": cnr,
+            "orders": [
+                {
+                    "order_date": o.order_date.isoformat() if o.order_date else None,
+                    "name": o.descriptive_name,
+                    "summary": o.summary or "(not yet summarized)",
+                }
+                for o in self.repo.list_orders(case.id)
             ],
         }

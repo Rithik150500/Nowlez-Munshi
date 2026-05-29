@@ -95,6 +95,19 @@ def refresh_case(
     return {"case": serializers.case_summary(result.case), "changes": _changes(result.changes)}
 
 
+@router.post("/{cnr}/process-orders")
+def process_orders(
+    cnr: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    from nm_core import documents
+
+    case = CaseRepository(db).get_by_cnr(user.id, cnr.upper())
+    if case is None:
+        raise HTTPException(status_code=404, detail="case not found")
+    count = documents.process_for_case(db, case_id=case.id)
+    return {"processed": count}
+
+
 @router.put("/{cnr}/prefs")
 def set_prefs(
     cnr: str,

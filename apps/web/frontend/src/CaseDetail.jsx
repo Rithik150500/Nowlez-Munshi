@@ -65,17 +65,33 @@ export default function CaseDetail({ cnr, onBack, onChanged }) {
         <p>Stage: {c.stage || "—"} · Next hearing: {c.next_hearing_date || "—"} · Judge: {c.judge || "—"}</p>
       </div>
       <div className="card">
-        <h3>Orders ({c.orders.length})</h3>
+        <div className="row">
+          <h3 className="grow">Orders ({c.orders.length})</h3>
+          {c.orders.length > 0 && (
+            <button
+              className="ghost"
+              onClick={async () => {
+                await api.processOrders(cnr);
+                await load();
+              }}
+            >
+              Summarize
+            </button>
+          )}
+        </div>
         {c.orders.map((o) => (
-          <div key={o.order_id} className="row">
-            <span className="grow">
-              {o.order_date} — {o.descriptive_name || `Order ${o.order_id}`}
-            </span>
-            {o.order_url && (
-              <a href={o.order_url} target="_blank" rel="noreferrer">
-                PDF
-              </a>
-            )}
+          <div key={o.order_id} style={{ marginBottom: 8 }}>
+            <div className="row">
+              <span className="grow">
+                {o.order_date} — {o.descriptive_name || `Order ${o.order_id}`}
+              </span>
+              {o.order_url && (
+                <a href={o.order_url} target="_blank" rel="noreferrer">
+                  PDF
+                </a>
+              )}
+            </div>
+            {o.summary && <div className="muted">{o.summary}</div>}
           </div>
         ))}
         {c.orders.length === 0 && <p className="muted">No orders yet.</p>}

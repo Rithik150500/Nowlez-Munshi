@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from nm_core.ai.repository import ChatRepository
 from nm_core.ai.service import ask
+from nm_core.ai.summarize import summarize_order
 from nm_core.ai.types import Answer, Citation
 
-__all__ = ["Answer", "ChatRepository", "Citation", "ask"]
+__all__ = ["Answer", "ChatRepository", "Citation", "ask", "summarize_order"]

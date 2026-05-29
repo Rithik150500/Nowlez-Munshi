@@ -33,6 +33,7 @@ export const api = {
   getCase: (cnr) => req("GET", `/api/cases/${cnr}`),
   deleteCase: (cnr) => req("DELETE", `/api/cases/${cnr}`),
   refreshCase: (cnr) => req("POST", `/api/cases/${cnr}/refresh`),
+  processOrders: (cnr) => req("POST", `/api/cases/${cnr}/process-orders`),
   setPrefs: (cnr, prefs) => req("PUT", `/api/cases/${cnr}/prefs`, prefs),
   notifications: () => req("GET", "/api/notifications"),
   markRead: (id) => req("POST", `/api/notifications/${id}/read`),

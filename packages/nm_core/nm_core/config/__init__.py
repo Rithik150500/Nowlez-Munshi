@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     ECOURTS_RETRY_MAX_ATTEMPTS: int = 3
     ECOURTS_RETRY_BASE_DELAY_SECONDS: float = 1.0
 
+    # Document storage (order PDFs, drafts)
+    STORAGE_DIR: str = "./var/storage"
+
     # AI Munshi (Gemini). No key → deterministic offline agent (dev/tests).
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3-flash-preview"
