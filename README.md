@@ -38,7 +38,7 @@ deploy/                  deployment compose (incl. OnlyOffice document server)
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e "packages/nm_core[test]" -e apps/web -e apps/bot -e apps/worker
-DATABASE_URL=sqlite:///./dev.db python -m alembic -c packages/nm_core/alembic.ini upgrade head
+(cd packages/nm_core && DATABASE_URL=sqlite:///./dev.db python -m alembic -c alembic.ini upgrade head)
 pytest packages/nm_core/tests apps          # offline; no creds needed
 ```
 

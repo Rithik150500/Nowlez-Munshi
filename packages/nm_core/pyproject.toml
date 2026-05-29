@@ -25,6 +25,7 @@ dependencies = [
     "Pillow>=10.0",
     "pyzbar>=0.1.9",
     "pywebpush>=2.0",
+    "tzdata",  # IANA tz db for zoneinfo on Windows/slim Docker (see messaging.send)
 ]
 
 [project.optional-dependencies]
