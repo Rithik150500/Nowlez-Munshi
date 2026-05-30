@@ -61,7 +61,23 @@ def start(session: Session, user) -> str:
 
 def handle_button(session: Session, user, payload: str) -> str:
     kind, _, val = payload[len(_PREFIX):].partition(":")
-    state = conversation.get_state(user.id) or {"flow": "search"}
+    state = conversation.get_state(user.id)
+    # A button tapped after the conversation TTL expired (or for a different flow) has
+    # no usable state. Only "mode" can start fresh; every later step needs prior keys,
+    # so bail gracefully instead of KeyError-ing on a missing state_code/district_code.
+    _EXPIRED = "That search expired. Send /search to start again."
+    if kind != "mode" and (state is None or state.get("flow") != "search"):
+        conversation.clear_state(user.id)
+        return _EXPIRED
+    state = state or {"flow": "search"}
+    _REQUIRED = {
+        "district": ("state_code",),
+        "complex": ("state_code", "district_code"),
+        "police": ("state_code", "district_code", "court_code_arr"),
+    }
+    if any(k not in state for k in _REQUIRED.get(kind, ())):
+        conversation.clear_state(user.id)
+        return _EXPIRED
 
     if kind == "mode":
         state.update(mode=val, step="state")

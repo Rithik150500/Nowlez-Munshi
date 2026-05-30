@@ -13,7 +13,7 @@ from rq import Queue, Retry
 from nm_core.config import get_settings
 from nm_core.messaging import jobs
 from nm_core.messaging.idempotency import claim_daily_slot
-from nm_core.messaging.redis_dedup import claim_send_dedup, get_redis
+from nm_core.messaging.redis_dedup import claim_send_dedup, get_redis, release_send_dedup
 from nm_core.messaging.send import _today_ist
 
 logger = logging.getLogger("nm_core.messaging.queue")
@@ -39,15 +39,11 @@ def enqueue_send_text(
         return False
     if dedup_key and not claim_send_dedup(dedup_key):
         return False  # logical duplicate — already sent/queued
-    _queue().enqueue(
-        jobs.do_send_text,
-        to_phone=to_phone,
-        body=body,
-        user_id=str(user_id) if user_id else None,
-        dedup_key=dedup_key,
-        retry=_RETRY,
+    return _enqueue_or_release(
+        dedup_key, jobs.do_send_text,
+        to_phone=to_phone, body=body,
+        user_id=str(user_id) if user_id else None, dedup_key=dedup_key,
     )
-    return True
 
 
 def enqueue_send_daily_template(
@@ -94,14 +90,21 @@ def enqueue_send_document(
         return False
     if dedup_key and not claim_send_dedup(dedup_key):
         return False
-    _queue().enqueue(
-        jobs.do_send_document,
-        to_phone=to_phone,
-        storage_key=storage_key,
-        filename=filename,
-        caption=caption,
-        user_id=str(user_id) if user_id else None,
-        dedup_key=dedup_key,
-        retry=_RETRY,
+    return _enqueue_or_release(
+        dedup_key, jobs.do_send_document,
+        to_phone=to_phone, storage_key=storage_key, filename=filename, caption=caption,
+        user_id=str(user_id) if user_id else None, dedup_key=dedup_key,
     )
+
+
+def _enqueue_or_release(_claim_key: str | None, func, **kwargs) -> bool:
+    """Enqueue the job; if enqueue raises, release the dedup claim (``_claim_key``) so
+    the producer can retry — otherwise the message is suppressed for the full dedup TTL
+    — then re-raise. ``kwargs`` (which include the job's own ``dedup_key``) pass through."""
+    try:
+        _queue().enqueue(func, retry=_RETRY, **kwargs)
+    except Exception:
+        if _claim_key:
+            release_send_dedup(_claim_key)
+        raise
     return True

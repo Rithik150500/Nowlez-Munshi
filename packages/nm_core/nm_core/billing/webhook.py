@@ -14,6 +14,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from nm_core.billing import SubscriptionRepository
@@ -26,8 +27,19 @@ _TIER_ACTIVATE = {"subscription.activated", "subscription.charged", "subscriptio
 _TIER_CANCEL = {"subscription.halted", "subscription.cancelled"}
 
 
-def _already_processed(session: Session, event_id: str) -> bool:
-    return session.query(PaymentEvent).filter_by(event_id=event_id).first() is not None
+def _claim_event(session: Session, event_id: str, event_type: str) -> bool:
+    """Claim an event id as the serialization point. Insert-then-flush so the DB unique
+    constraint — not a racy SELECT — decides the winner: a concurrent replay's insert
+    raises IntegrityError and we report it as already-processed. Returns True if THIS
+    call won the claim (proceed with side effects), False if it's a duplicate."""
+    savepoint = session.begin_nested()
+    session.add(PaymentEvent(event_id=event_id, event_type=event_type))
+    try:
+        savepoint.commit()  # flushes the INSERT; unique violation surfaces here
+    except IntegrityError:
+        savepoint.rollback()
+        return False
+    return True
 
 
 def _munshi_invoice_id(payload: dict[str, Any]) -> str | None:
@@ -68,11 +80,8 @@ def _provider_ref(payload: dict[str, Any], key: str) -> str | None:
 
 def process_webhook(session: Session, *, event_id: str | None, payload: dict[str, Any]) -> str:
     """Process one verified webhook. Returns an action label (for logging/tests)."""
-    if event_id:
-        if _already_processed(session, event_id):
-            return "duplicate"
-        session.add(PaymentEvent(event_id=event_id, event_type=payload.get("event", "")))
-        session.flush()
+    if event_id and not _claim_event(session, event_id, payload.get("event", "")):
+        return "duplicate"
 
     event = payload.get("event", "")
 

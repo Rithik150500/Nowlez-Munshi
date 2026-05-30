@@ -127,3 +127,34 @@ def test_error_text_scrubs_bearer_token(client):
         client.send_text("+9199", "hi")
     assert "tok" not in str(exc.value)
     assert "<redacted>" in str(exc.value)
+
+
+def test_document_send_skips_opted_out_user(tmp_path, monkeypatch, client):
+    """Proactive document delivery honors a DPDP opt-out at the boundary (B4)."""
+    # in-memory DB session
+    import sqlite3
+    import uuid as _uuid
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from nm_core import consent, storage
+    from nm_core.db import models  # noqa: F401
+    from nm_core.db.base import Base
+    from nm_core.identity.repositories import UserRepository
+    from nm_core.messaging import send as send_mod
+    sqlite3.register_adapter(_uuid.UUID, str)
+    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(eng)
+    s = sessionmaker(bind=eng)()
+
+    monkeypatch.setattr(storage, "get_storage", lambda: storage.LocalStorage(str(tmp_path)))
+    monkeypatch.setattr(send_mod, "get_storage", storage.get_storage)
+    storage.get_storage().put("o.pdf", b"%PDF small")
+
+    user, _ = UserRepository(s).get_or_create_by_phone(phone="+919100000999")
+    consent.set_opt_out(s, user=user, opted_out=True)
+    wamid = send_mod._deliver_document(
+        s, to_phone=user.phone, storage_key="o.pdf", filename="o.pdf",
+        user_id=user.id, client=client)
+    assert wamid is None  # suppressed for the opted-out user

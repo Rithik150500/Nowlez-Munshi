@@ -88,3 +88,28 @@ def test_job_retries_transient(db_session, monkeypatch):
     # Transient errors propagate so RQ retries (not swallowed).
     with pytest.raises(MetaTransientError):
         jobs.do_send_text(to_phone="+9199", body="hi")
+
+
+def test_enqueue_releases_dedup_on_enqueue_failure(monkeypatch):
+    """If enqueue raises after the dedup key was claimed, the key is released so the
+    producer can retry (B7) — otherwise the send is suppressed for the full TTL."""
+    import fakeredis
+    import pytest
+
+    from nm_core.config import get_settings
+    from nm_core.messaging import queue, redis_dedup
+
+    fake = fakeredis.FakeStrictRedis()
+    monkeypatch.setattr(redis_dedup, "_client", fake)
+    monkeypatch.setattr(get_settings(), "WHATSAPP_DISABLED", False)
+
+    class _BoomQueue:
+        def enqueue(self, *a, **k):
+            raise RuntimeError("rq down")
+
+    monkeypatch.setattr(queue, "_queue", lambda: _BoomQueue())
+    with pytest.raises(RuntimeError):
+        queue.enqueue_send_text(to_phone="+9199", body="hi", dedup_key="k1")
+    # the key must NOT remain claimed
+    assert fake.get("send_dedup:k1") is None
+    monkeypatch.setattr(redis_dedup, "_client", None)

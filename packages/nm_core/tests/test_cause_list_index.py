@@ -49,7 +49,9 @@ def test_index_is_idempotent(db_session):
     second = index_hc_cause_lists(
         db_session, state_code="1", district_code="1", court_code="C1", sitting_date=SD,
     )
-    assert second["stored"] == 0  # re-index upserts, no duplicate rows
+    # Re-index replaces the bench's rows wholesale (delete-then-insert), so the row set
+    # never duplicates even if the positional sr_no drifts between parses.
+    assert second["stored"] == 2
     assert db_session.query(CauseListRow).count() == 2
 
 
@@ -90,3 +92,24 @@ def test_back_resolution_requires_unique_match(db_session, monkeypatch):
     )
     # both offline rows are 'WP' → ambiguous → none bound
     assert db_session.query(CauseListRow).filter(CauseListRow.cnr.is_not(None)).count() == 0
+
+
+def test_reindex_with_shifted_sr_no_does_not_duplicate(db_session, monkeypatch):
+    """If a re-parse shifts sr_no (extra/fewer rows), the bench's set is replaced, not
+    duplicated (B9 regression)."""
+    import nm_core.cause_lists as cl
+    from nm_core.ecourts.models import HCCauseListPDFRow
+
+    index_hc_cause_lists(db_session, state_code="1", district_code="1",
+                         court_code="C1", sitting_date=SD)
+    assert db_session.query(CauseListRow).count() == 2
+
+    # Second run: the parser now returns 3 rows with shifted sr_no (1,2,3 vs 1,2).
+    monkeypatch.setattr(cl.ecourts, "hc_cause_list_pdf_rows", lambda **kw: [
+        HCCauseListPDFRow(sr_no=1, section="ADMISSION", case_number="WP/100/2026", raw_text="r1"),
+        HCCauseListPDFRow(sr_no=2, section="ADMISSION", case_number="WP/150/2026", raw_text="r2"),
+        HCCauseListPDFRow(sr_no=3, section="ADMISSION", case_number="WP/200/2026", raw_text="r3"),
+    ])
+    index_hc_cause_lists(db_session, state_code="1", district_code="1",
+                         court_code="C1", sitting_date=SD, resolve=False)
+    assert db_session.query(CauseListRow).count() == 3  # replaced, not 2+3=5

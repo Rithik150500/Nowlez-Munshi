@@ -27,3 +27,12 @@ def claim_send_dedup(dedup_key: str, *, ttl_seconds: int = 600) -> bool:
     except Exception as e:  # noqa: BLE001 — best-effort, never block a send on Redis
         logger.warning("send_dedup Redis SETNX failed (%s); proceeding", e)
         return True
+
+
+def release_send_dedup(dedup_key: str) -> None:
+    """Undo a claim so the producer can retry — used when the enqueue/send fails after
+    the key was claimed (otherwise the message is suppressed for the full TTL)."""
+    try:
+        get_redis().delete(f"send_dedup:{dedup_key}")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("send_dedup release failed (%s)", e)

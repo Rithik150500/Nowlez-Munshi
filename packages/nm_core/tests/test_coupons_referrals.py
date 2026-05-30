@@ -101,3 +101,25 @@ def test_webhook_activation_consumes_coupon_and_rewards(db_session):
     assert effective_tier(db_session, referee_account.id) == "advocate"
     assert db_session.query(CouponCode).filter_by(code="WHC").one().current_uses == 1
     assert referrals.stats(db_session, referrer)["rewards_earned"] == 1
+
+
+def test_duplicate_activation_event_does_not_double_reward(db_session):
+    """A replayed activation (same event_id) must not apply the referral reward twice
+    or burn a second coupon use — the claim short-circuits before side effects (HIGH-1)."""
+    _coupon(db_session, code="DUP", max_uses=5)
+    referrer, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000907")
+    ensure_personal_account(db_session, referrer)
+    code = referrals.get_or_create_code(db_session, referrer)
+    referee, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000908")
+    referee_account = ensure_personal_account(db_session, referee)
+    referrals.apply_referral(db_session, new_user=referee, code=code)
+
+    payload = {"event": "subscription.activated", "payload": {"subscription": {"entity": {
+        "id": "sub_dup", "notes": {"account_id": str(referee_account.id),
+                                   "tier": "advocate", "coupon_code": "DUP"}}}}}
+    assert process_webhook(db_session, event_id="evt_x", payload=payload) == "nowlez_tier"
+    assert process_webhook(db_session, event_id="evt_x", payload=payload) == "duplicate"
+
+    from nm_core.db.models.coupon import CouponCode
+    assert db_session.query(CouponCode).filter_by(code="DUP").one().current_uses == 1
+    assert referrals.stats(db_session, referrer)["rewards_earned"] == 1

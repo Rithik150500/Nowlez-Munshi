@@ -27,8 +27,14 @@ def upgrade() -> None:
 
     op.add_column("users", sa.Column("referral_code", sa.String(16), nullable=True))
     op.add_column("users", sa.Column("referred_by", uuid_type, nullable=True))
-    if is_pg:  # SQLite can't ALTER-ADD-CONSTRAINT; tests get uniqueness via create_all
+    if is_pg:  # SQLite can't ALTER-ADD-CONSTRAINT; tests get these via create_all
         op.create_unique_constraint("users_referral_code_key", "users", ["referral_code"])
+        # The model declares referred_by as a self-FK (ondelete SET NULL); add it so
+        # Postgres actually enforces the cascade the code assumes.
+        op.create_foreign_key(
+            "users_referred_by_fkey", "users", "users", ["referred_by"], ["id"],
+            ondelete="SET NULL",
+        )
 
     op.create_table(
         "referrals",
@@ -50,6 +56,7 @@ def downgrade() -> None:
     op.drop_index("referrals_referrer_idx", table_name="referrals")
     op.drop_table("referrals")
     if bind.dialect.name == "postgresql":
+        op.drop_constraint("users_referred_by_fkey", "users", type_="foreignkey")
         op.drop_constraint("users_referral_code_key", "users", type_="unique")
     op.drop_column("users", "referred_by")
     op.drop_column("users", "referral_code")

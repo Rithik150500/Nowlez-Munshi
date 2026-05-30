@@ -58,3 +58,19 @@ def test_migrations_match_metadata(tmp_path):
             f"alembic-only={alembic_cols[table] - orm_cols[table]}, "
             f"orm-only={orm_cols[table] - alembic_cols[table]}"
         )
+
+
+def test_migration_downgrade_roundtrip(tmp_path):
+    """upgrade head → downgrade base must succeed (catches dialect-unsafe downgrades,
+    e.g. unbatched SQLite DROP COLUMN). Runs on SQLite via the same Alembic chain."""
+    import os
+
+    db_file = tmp_path / "roundtrip.db"
+    url = f"sqlite:///{db_file}"
+    env = {**os.environ, "DATABASE_URL": url}
+    for args in (["upgrade", "head"], ["downgrade", "base"]):
+        res = subprocess.run(
+            [sys.executable, "-m", "alembic", "-c", str(_PKG_DIR / "alembic.ini"), *args],
+            cwd=_PKG_DIR, env=env, capture_output=True, text=True,
+        )
+        assert res.returncode == 0, f"alembic {' '.join(args)} failed:\n{res.stderr}"

@@ -85,3 +85,14 @@ def test_free_text_without_active_flow_is_not_hijacked(db_session, sends):
     assert conversation.get_state(user.id) is None
     _reply(db_session, "Sharma")  # no /search first → not a party-name step
     assert sends == []
+
+
+def test_button_after_state_expiry_is_graceful(db_session, sends, monkeypatch):
+    """A picker tapped after the conversation TTL expired must not KeyError (B1)."""
+    from nm_core import conversation
+    user, _ = UserRepository(db_session).get_or_create_by_phone(phone=PHONE)
+    conversation.clear_state(user.id)  # simulate TTL expiry
+    # district/complex/police need prior state → graceful expiry message, no crash
+    for payload in ("search:district:1", "search:complex:1|DLND01", "search:police:1"):
+        reply = handle_message(db_session, from_phone=PHONE, text=None, button_payload=payload)
+        assert "expired" in reply.lower()

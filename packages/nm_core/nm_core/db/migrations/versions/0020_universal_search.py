@@ -74,5 +74,8 @@ def downgrade() -> None:
             op.execute(f"ALTER TABLE {table} DROP COLUMN IF EXISTS search_tsv")
         op.drop_constraint("documents_case_id_fkey", "documents", type_="foreignkey")
     op.drop_index("documents_case_id_idx", table_name="documents")
-    for col in ("permanently_failed", "retry_count", "document_type", "case_id"):
-        op.drop_column("documents", col)
+    # Batch mode so the column drops work on SQLite (< 3.35 has no native DROP COLUMN);
+    # on Postgres it's a plain ALTER.
+    with op.batch_alter_table("documents") as batch:
+        for col in ("permanently_failed", "retry_count", "document_type", "case_id"):
+            batch.drop_column(col)

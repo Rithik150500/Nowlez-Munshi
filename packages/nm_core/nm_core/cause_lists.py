@@ -12,13 +12,12 @@ import logging
 import re
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from nm_core.db.models.cause_list import CauseListRow
 from nm_core.ecourts import client as ecourts
 from nm_core.ecourts.errors import ECourtsError
-from nm_core.ecourts.models import HCCauseListPDFRow
 
 logger = logging.getLogger("nm_core.cause_lists")
 
@@ -60,49 +59,37 @@ def index_hc_cause_lists(
         except ECourtsError:
             logger.exception("cause-list index failed for bench %s", bench.code)
             continue
+        # sr_no is a synthetic positional counter from the position-based PDF parser, so
+        # it shifts if a re-parse splits/merges rows differently. Replace this bench's
+        # rows for the date wholesale rather than positionally upserting (which would
+        # duplicate/mis-update on any drift).
+        bench_rows = []
         for entry in index:
             try:
-                pdf_rows = ecourts.hc_cause_list_pdf_rows(pdf_url=entry.pdf_url)
+                bench_rows.extend(ecourts.hc_cause_list_pdf_rows(pdf_url=entry.pdf_url))
             except ECourtsError:
                 logger.exception("cause-list PDF failed: %s", entry.pdf_url)
-                continue
-            for row in pdf_rows:
-                stored += _upsert(
-                    session, state_code=state_code, court_code=court_code,
-                    bench_id=bench.code, list_date=list_date, row=row,
-                )
+        if not index:
+            continue
+        session.execute(
+            delete(CauseListRow).where(
+                CauseListRow.bench_id == bench.code, CauseListRow.list_date == list_date
+            )
+        )
+        for row in bench_rows:
+            session.add(CauseListRow(
+                state_code=state_code, court_code=court_code, bench_id=bench.code,
+                list_date=list_date, sr_no=row.sr_no, section=row.section,
+                case_number=row.case_number, raw_text=row.raw_text,
+            ))
+            stored += 1
+        session.flush()
     if resolve:
         resolved = back_resolve_cnrs(
             session, state_code=state_code, district_code=district_code,
             court_code=court_code, list_date=list_date,
         )
     return {"benches": len(benches), "stored": stored, "resolved": resolved}
-
-
-def _upsert(
-    session: Session, *, state_code: str, court_code: str, bench_id: str,
-    list_date: date, row: HCCauseListPDFRow,
-) -> int:
-    existing = session.execute(
-        select(CauseListRow).where(
-            CauseListRow.bench_id == bench_id,
-            CauseListRow.list_date == list_date,
-            CauseListRow.sr_no == row.sr_no,
-        )
-    ).scalar_one_or_none()
-    if existing is not None:
-        existing.section = row.section
-        existing.case_number = row.case_number
-        existing.raw_text = row.raw_text
-        session.flush()
-        return 0
-    session.add(CauseListRow(
-        state_code=state_code, court_code=court_code, bench_id=bench_id,
-        list_date=list_date, sr_no=row.sr_no, section=row.section,
-        case_number=row.case_number, raw_text=row.raw_text,
-    ))
-    session.flush()
-    return 1
 
 
 def _case_type_lookup(state_code: str, district_code: str, court_code: str) -> dict[str, str]:

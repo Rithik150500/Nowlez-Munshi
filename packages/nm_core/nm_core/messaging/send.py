@@ -32,6 +32,16 @@ def _today_ist() -> date:
     return datetime.now(UTC).astimezone(_IST).date()
 
 
+def _is_opted_out(session: Session, user_id: uuid.UUID) -> bool:
+    """Whether the user has opted out of proactive WhatsApp. Imported lazily to avoid
+    a module cycle (consent → models → messaging)."""
+    from nm_core.consent import is_opted_out
+    from nm_core.db.models.user import User
+
+    user = session.get(User, user_id)
+    return user is not None and is_opted_out(user)
+
+
 def _log(
     session: Session,
     *,
@@ -230,7 +240,13 @@ def _deliver_document(
 
     The queue payload carries the *key* (not the bytes) so a transient retry
     re-reads from storage instead of dragging a multi-MB blob through Redis.
+
+    Document pushes (order PDFs, digests) are always proactive — never inbound service
+    replies — so this honors a user's DPDP opt-out as a defense-in-depth gate at the
+    delivery boundary, independent of whatever caller enqueued it.
     """
+    if user_id is not None and _is_opted_out(session, user_id):
+        return None
     data = get_storage().get(storage_key)
     if len(data) > _MAX_DOCUMENT_BYTES:
         observability.incr("whatsapp.send.failed")

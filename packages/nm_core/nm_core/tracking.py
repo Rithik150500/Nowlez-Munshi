@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -74,8 +75,9 @@ def run_refresh_sweep(session: Session, *, limit: int = 100) -> dict[str, int]:
             refreshed += 1
             if result.changes:
                 changed += 1
-            if case.consecutive_failures:  # recovered — clear the failure streak
+            if case.consecutive_failures:  # recovered — clear the streak + close any review
                 case.consecutive_failures = 0
+                _resolve_manual_review(session, case)
                 session.flush()
         except Exception as e:  # noqa: BLE001 — one bad case must not stop the sweep
             errored += 1
@@ -123,3 +125,14 @@ def _enqueue_manual_review(
             )
         )
     session.flush()
+
+
+def _resolve_manual_review(session: Session, case: Case) -> None:
+    """Close any open manual-review row for a case that just refreshed successfully."""
+    now = datetime.now(UTC)
+    for item in session.execute(
+        select(ManualReviewItem).where(
+            ManualReviewItem.case_id == case.id, ManualReviewItem.resolved_at.is_(None)
+        )
+    ).scalars():
+        item.resolved_at = now

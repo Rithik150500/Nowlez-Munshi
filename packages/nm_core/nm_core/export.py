@@ -67,11 +67,13 @@ def build_user_export_zip(session: Session, *, user: User, today=None) -> bytes:
                     zf, storage, o.file_path, f"{base}/orders/{o.order_id}.pdf",
                     blob_bytes, files_excluded)
 
-        # Documents (account-scoped).
+        # Documents the user personally uploaded. A GDPR export is the requester's OWN
+        # data, so scope by created_by — NOT by shared account (which would disclose
+        # co-members' uploads, themselves separate data subjects).
         account_ids = [a.id for a in AccountRepository(session).list_accounts_for_user(user.id)]
         docs = session.execute(
-            select(Document).where(Document.account_id.in_(account_ids))
-        ).scalars().all() if account_ids else []
+            select(Document).where(Document.created_by == user.id)
+        ).scalars().all()
         zf.writestr(f"{root}/documents.json", _j([
             {"id": str(d.id), "title": d.title, "filename": d.filename,
              "document_type": d.document_type, "summary": d.summary,
