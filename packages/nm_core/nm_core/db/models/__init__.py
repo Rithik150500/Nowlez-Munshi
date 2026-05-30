@@ -10,6 +10,7 @@ from nm_core.db.models.cause_list import CauseListRow
 from nm_core.db.models.chat import ChatMessage, ChatThread
 from nm_core.db.models.coupon import CouponCode
 from nm_core.db.models.document import Document
+from nm_core.db.models.drip_state import UserDripState
 from nm_core.db.models.manual_review import ManualReviewItem
 from nm_core.db.models.messaging import MessageLog, OutboundMessage
 from nm_core.db.models.munshi_invoice import MunshiInvoice
@@ -44,5 +45,6 @@ __all__ = [
     "Referral",
     "Subscription",
     "User",
+    "UserDripState",
     "Waitlist",
 ]
