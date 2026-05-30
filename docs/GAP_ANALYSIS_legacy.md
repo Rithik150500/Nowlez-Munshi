@@ -183,3 +183,27 @@ documents/cases/orders (SQLite → LIKE fallback).
 Cross-cutting: a shared `billing/webhook.py` activation hook (coupons + referrals), the
 tier-on-Subscription mapping for "+15 days" rewards, and the no-client-entity mapping.
 | Universal FTS · file-tree · OCR · drip · GDPR export · richer re-engage · ICS · voice · admin breadth · client entity | ⬜ Wave 5 |
+
+## Pre-merge audit (post-port)
+
+A 3-agent audit of `claude/port-legacy` found bugs the green tests missed. **Fixed**
+(with regression tests): B1 (search-flow KeyError on expired state), B9 (cause-list
+positional-upsert duplication), A1 (`referred_by` FK missing in 0024), A2 (0020
+unbatched downgrade), B7 (dedup-before-enqueue suppresses retries), B8 (stale
+manual-review row on recovery), M3 (GDPR export leaked co-members' docs), B4 (opt-out
+now enforced at the document-delivery boundary), HIGH-1 (webhook idempotency made
+concurrency-safe via insert-then-flush claim).
+
+**Deferred (tracked, not yet done):**
+- *Billing go-live hardening* — webhook trusts `notes` (account_id/tier/coupon_code/
+  munshi_invoice_id) after signature verify; before enabling live Razorpay, validate the
+  payment amount vs invoice, map tier from `plan_id` not `notes.tier`, and verify
+  account/subscription ownership. Checkout is a stub today, so not currently exploitable.
+- *docx drafting sandbox* — the Node `vm` runner (chosen Option A) is not a security
+  boundary; run it under OS/container isolation (separate user, seccomp, no network, RO FS)
+  before exposing it, or switch to the pure-Python JSON-spec renderer.
+- *Coupon per-renewal consumption* — `_on_activation` consumes a use on every
+  `subscription.charged`, not once per customer; track per-subscription.
+- *Public endpoints* — `X-Forwarded-For` is trusted (rate-limit bypass) and the limiter
+  fails open; honor XFF only from trusted proxies and consider fail-closed for writes.
+- *Pre-existing (not this port)* — OnlyOffice `/callback` SSRF + unauthenticated overwrite.
