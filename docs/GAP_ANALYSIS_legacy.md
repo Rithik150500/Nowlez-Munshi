@@ -207,3 +207,50 @@ concurrency-safe via insert-then-flush claim).
 - *Public endpoints* — `X-Forwarded-For` is trusted (rate-limit bypass) and the limiter
   fails open; honor XFF only from trusted proxies and consider fail-closed for writes.
 - *Pre-existing (not this port)* — OnlyOffice `/callback` SSRF + unauthenticated overwrite.
+
+## Residual-gap sweep (post-port completeness check)
+
+A second pass read each legacy repo directly for substantive features in *neither* the
+ported nor the deferred lists. Ten genuine misses surfaced (none high-risk; mostly
+delivery polish + lifecycle emails + one load-control algorithm). Recorded here so the
+record is complete — not yet scheduled.
+
+### casepilot (Nowlez web)
+- **Adaptive activity-weighted refresh** (M) — refresh cadence is *not* a flat interval:
+  an activity score (hearing ≤7d → max priority; decays to a dormant floor) stretches a
+  tier's base interval up to 50× for dormant cases. Greenfield refreshes flat. This
+  materially controls eCourts load + freshness. `backend/scheduler.py:373-442`.
+- **Weekly WhatsApp summary digest** (S/M) — Monday 09:00 IST last-7-days summary template;
+  greenfield ports only the tomorrow-hearing digest. `backend/scheduler.py:1232`.
+- **Day-45 win-back email** (S) — post-trial re-engagement for never-subscribed users,
+  outside the ported D1–D27 drip window. `backend/email.py:203`.
+- **Subscription renewal reminder (T-3)** (S) — emails active subscribers 3 days before
+  auto-charge; once-per-cycle dedup. `backend/scheduler.py:1004-1032`.
+- **General product feedback (NPS)** (S) — `POST /api/feedback` + `feedback` table (rating/
+  category/message/page); greenfield has only chat thumbs. `backend/routers/auth.py:827`.
+- **Chat-history full-text search** (S) — search your own past Munshi conversations;
+  greenfield FTS indexes docs/cases/orders only. `backend/routers/chat.py:349`.
+
+### ecourts-bot (Munshi)
+- **[View history] full hearing-history view** (S/M) — a result button rendering the full
+  hearing table (date/purpose/judge, newest-first, capped + "+N earlier"); greenfield
+  exposes only last-5 inside the AI tool. `handlers/cnr_lookup/history_button.py:66`.
+- **Portfolio PDF rendering** (M) — `/portfolio`·`/today`·`/this_week` deliver WeasyPrint
+  PDFs; greenfield renders these as text and has **no PDF generator at all**.
+  `bot/portfolio/render_pdf.py`.
+
+### shared (spine)
+- **WhatsApp delivery-status persistence** (M) — apply Meta sent/delivered/read/failed
+  receipts to per-status timestamp columns (wamid-race-idempotent); greenfield *parses*
+  statuses (`messaging/webhook.parse_status_updates`) but nothing consumes them, and
+  `OutboundMessage` has only a single status string. `whatsapp_delivery/.../status_handler.py`.
+- **Order-PDF retry cooldown + permanent-fail** (M) — per-order retry cooldown (1h) +
+  `permanently_failed` at max retries; greenfield order processing retries every sweep with
+  no cooldown (the 3-try cap exists only on Document uploads). `data-access/.../order_dao.py:162`.
+- *(Related)* **`render_hybrid` text-vs-PDF threshold** (S) — short → text, long → PDF; folds
+  into the two PDF-rendering gaps above (no WeasyPrint in greenfield).
+
+**Theme:** the only recurring capability fully absent from greenfield is **server-side PDF
+generation** (portfolio/digest PDFs) and **delivery-receipt persistence**. The adaptive
+refresh scheduler is the highest-value standalone miss. Everything else is small lifecycle
+polish. Core domain, billing, identity, eCourts, and messaging are fully accounted for.
