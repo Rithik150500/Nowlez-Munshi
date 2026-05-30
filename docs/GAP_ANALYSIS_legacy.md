@@ -113,11 +113,16 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 4. ✅ **Wave 4 — AI differentiation** *(done)*: Tavily web search + web-source citations,
    chat feedback (thumbs) + edit/regenerate, legal-doc drafting (sandboxed Node docx-js
    runner + 100 templates, faithful port).
-5. 🔄 **Wave 5 — Document/search depth + growth polish** *(in progress)*:
-   - ✅ Document & search cluster: universal FTS (0020), file-library (tree/rename/
-     reclassify), OCR (Gemini Path A), AI auto-classify/name/auto-attach.
-   - ⬜ Growth & web: ICS export, waitlist + demo, GDPR ZIP export, coupons, referrals,
-     drip email lifecycle.
+5. ✅ **Wave 5 — Document/search depth + growth polish** *(done)*:
+   - ✅ Document & search: universal FTS (0020), file-library (tree/rename/reclassify),
+     OCR (Gemini Path A), AI auto-classify/name/auto-attach.
+   - ✅ Growth & web: ICS export, waitlist + demo (+ IP rate-limiter), GDPR ZIP export
+     (0022), coupons (0023), referrals (0024), drip email lifecycle (0025).
+
+**All five waves complete.** Remaining deferred-by-design items: paginated WhatsApp
+order viewer; HC morning-amendment + Sunday-preview digest windows; the Munshi
+distinct-over-window usage count (needs a `case_billing_periods` table); voice input;
+broader admin console. None are legacy-fidelity regressions.
 
 ### Closed gaps → commits (Waves 1–2)
 
