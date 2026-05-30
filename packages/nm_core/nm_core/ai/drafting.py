@@ -27,15 +27,25 @@ from nm_core.storage import get_storage
 logger = logging.getLogger("nm_core.ai.drafting")
 
 _RUNNER = Path(__file__).parent / "docx_runner" / "runner.js"
+_DOCX_DEP = Path(__file__).parent / "docx_runner" / "node_modules" / "docx"
 _REFERENCE = Path(__file__).parent / "reference" / "docx-js-reference.md"
 _TEMPLATES_DIR = Path(__file__).parent / "reference" / "templates"
 _SAFE_TITLE_RE = re.compile(r"[^A-Za-z0-9 _-]+")
 
 
 def is_available() -> bool:
-    """True if a Node runtime is resolvable and the runner is present."""
+    """True only if drafting can actually run: a Node runtime, the runner, AND its
+    installed `docx` dep. The dep check matters because the wheel ships the runner but
+    NOT node_modules (installed via `npm install` at deploy) — without it, the runner
+    fails at `require('docx')`. Gating on the dep keeps the tool (and its tests)
+    correctly disabled until the deps are present."""
     bin_ = get_settings().DOCX_NODE_BIN
-    return bool(bin_) and shutil.which(bin_) is not None and _RUNNER.exists()
+    return (
+        bool(bin_)
+        and shutil.which(bin_) is not None
+        and _RUNNER.exists()
+        and _DOCX_DEP.is_dir()
+    )
 
 
 def read_reference() -> str:
