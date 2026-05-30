@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from nm_core import ai, ecourts
 from nm_core.db.models.case import CaseOrder
 from nm_core.db.models.document import Document
-from nm_core.documents import ocr
+from nm_core.documents import classify, ocr
 from nm_core.storage import get_storage
 
 logger = logging.getLogger("nm_core.documents")
@@ -100,23 +100,65 @@ class DocumentRepository:
 
 
 def process_upload(session: Session, *, document_id) -> Document | None:
-    """Extract text + AI-summarize an uploaded document (PDF or DOCX).
+    """Extract text (OCR-fallback for scans), then enrich with AI classification.
 
-    Falls back to Gemini OCR for scanned/image-only PDFs (no extractable text)."""
+    Save-then-enrich: text extraction + a baseline summary always land; the AI
+    classify/name/auto-attach step is failure-soft (bumps retry_count, marks
+    permanently_failed after 3 tries) so a flaky model call never strands the upload."""
     doc = session.get(Document, document_id)
     if doc is None:
         return None
     data = get_storage().get(doc.storage_key)
     text = extract_text_any(data, content_type=doc.content_type, filename=doc.filename)
     pages = page_count(data)
-    if ocr.needs_ocr(text, pages):
+    is_pdf = (doc.content_type == "application/pdf") or (doc.filename or "").endswith(".pdf")
+    if is_pdf and ocr.needs_ocr(text, pages):
         text = ocr.ocr_pdf(data) or text
     doc.extracted_text = text or None
-    doc.summary = ai.summarize_order(text)
     doc.page_count = pages
+    doc.summary = ai.summarize_order(text)
     doc.status = "processed"
     session.flush()
+    _enrich_document(session, doc, data if is_pdf else None, text)
     return doc
+
+
+def _enrich_document(session: Session, doc: Document, pdf: bytes | None, text: str) -> None:
+    """AI classify → descriptive name + type + auto-attach to a matching case.
+
+    No-op (leaves the baseline summary) when classification is unavailable. On a
+    transient failure, bumps retry_count and marks permanently_failed at the cap so the
+    worker sweep stops retrying it."""
+    from nm_core.cases import CaseRepository
+
+    if not classify.is_available():
+        return
+    user_cases = (
+        CaseRepository(session).list_by_user(doc.created_by) if doc.created_by else []
+    )
+    ctx = [{"cnr": c.cnr, "title": c.title, "court": c.court} for c in user_cases]
+    try:
+        result = classify.classify(pdf_bytes=pdf, text=text, cases=ctx)
+    except Exception:  # noqa: BLE001 — never let enrichment break the upload
+        result = None
+    if result is None:
+        doc.retry_count += 1
+        if doc.retry_count >= 3:
+            doc.permanently_failed = True
+        session.flush()
+        return
+    name = classify.sanitize_filename(result["descriptive_name"])
+    doc.title = result["descriptive_name"]
+    doc.filename = f"{name}.pdf" if pdf else doc.filename
+    doc.document_type = result["document_type"]
+    if result.get("summary"):
+        doc.summary = result["summary"]
+    if result.get("case_cnr") and doc.created_by:
+        case = CaseRepository(session).get_by_cnr(doc.created_by, result["case_cnr"])
+        if case is not None:
+            doc.case_id = case.id
+    doc.retry_count = 0
+    session.flush()
 
 
 def extract_text(pdf: bytes) -> str:
@@ -191,3 +233,24 @@ def process_pending(session: Session, *, limit: int = 50) -> int:
     return sum(
         _try_process(session, order.id) for order in list_unprocessed(session, limit=limit)
     )
+
+
+def reenrich_uploads(session: Session, *, limit: int = 50) -> int:
+    """Re-run AI enrichment on uploads that haven't classified yet (and aren't
+    permanently failed). The save-then-enrich retry path. Returns the count enriched."""
+    rows = session.execute(
+        select(Document).where(
+            Document.kind == "upload",
+            Document.document_type.is_(None),
+            Document.permanently_failed.is_(False),
+            Document.retry_count < 3,
+        ).limit(limit)
+    ).scalars().all()
+    enriched = 0
+    for doc in rows:
+        data = get_storage().get(doc.storage_key)
+        is_pdf = (doc.content_type == "application/pdf") or (doc.filename or "").endswith(".pdf")
+        _enrich_document(session, doc, data if is_pdf else None, doc.extracted_text or "")
+        if doc.document_type is not None:
+            enriched += 1
+    return enriched

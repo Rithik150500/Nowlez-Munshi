@@ -15,7 +15,8 @@ logger = logging.getLogger("nm_worker.documents")
 def run_once(*, limit: int = 50) -> int:
     with session_scope() as session:
         n = documents.process_pending(session, limit=limit)
-    logger.info("processed %d pending order(s)", n)
+        enriched = documents.reenrich_uploads(session, limit=limit)
+    logger.info("processed %d pending order(s); enriched %d upload(s)", n, enriched)
     return n
 
 
