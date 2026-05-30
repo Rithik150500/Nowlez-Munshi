@@ -16,6 +16,7 @@ from nm_core.db.models.notification import Notification
 from nm_core.db.models.payment_event import PaymentEvent
 from nm_core.db.models.push import PushSubscription
 from nm_core.db.models.user import User
+from nm_core.db.models.waitlist import Waitlist
 
 __all__ = [
     "Account",
@@ -39,4 +40,5 @@ __all__ = [
     "PushSubscription",
     "Subscription",
     "User",
+    "Waitlist",
 ]
