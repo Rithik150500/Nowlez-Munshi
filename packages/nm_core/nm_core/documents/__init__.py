@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 import uuid
 
 from sqlalchemy import select
@@ -14,6 +15,37 @@ from nm_core.db.models.document import Document
 from nm_core.storage import get_storage
 
 logger = logging.getLogger("nm_core.documents")
+
+_BAD_NAME_CHARS = re.compile(r'[<>:"|?*\x00-\x1f/\\]')
+_WIN_RESERVED = re.compile(r"^(?:CON|PRN|AUX|NUL|COM\d|LPT\d)$", re.IGNORECASE)
+
+
+class InvalidFilename(ValueError):
+    """A user-supplied document name failed validation."""
+
+
+def validate_filename(new_name: str, *, original: str | None = None) -> str:
+    """Validate + normalize a user rename, preserving the original extension.
+
+    Ported from the legacy files rename: strips path separators, caps at 200 chars,
+    rejects illegal chars / Windows reserved names / leading-trailing dot or space.
+    Raises InvalidFilename on a bad name."""
+    name = (new_name or "").replace("/", "").replace("\\", "")[:200].strip()
+    if not name:
+        raise InvalidFilename("empty name")
+    if _BAD_NAME_CHARS.search(name):
+        raise InvalidFilename("name contains invalid characters")
+    stem = name.rsplit(".", 1)[0] if "." in name else name
+    if _WIN_RESERVED.match(stem):
+        raise InvalidFilename("name is a reserved system name")
+    if name.startswith(".") or name.endswith((".", " ")):
+        raise InvalidFilename("name cannot start/end with a dot or space")
+    # Preserve the original extension if the new name dropped it.
+    if original and "." in original:
+        ext = "." + original.rsplit(".", 1)[1]
+        if not name.lower().endswith(ext.lower()):
+            name += ext
+    return name
 
 
 def extract_text_docx(data: bytes) -> str:

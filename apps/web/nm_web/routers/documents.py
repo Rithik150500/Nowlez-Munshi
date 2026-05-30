@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from nm_core import documents as docproc
 from nm_core.config import get_settings
+from nm_core.db.models.case import Case
 from nm_core.db.models.document import Document
 from nm_core.db.models.user import User
 from nm_core.documents.onlyoffice import blank_docx, editor_config, verify_callback
@@ -64,6 +65,107 @@ def list_documents(user: User = Depends(get_current_user), db: Session = Depends
     return {
         "documents": [{"id": str(d.id), "title": d.title, "filename": d.filename} for d in rows]
     }
+
+
+def _doc_view(d: Document) -> dict:
+    return {
+        "id": str(d.id), "title": d.title, "filename": d.filename,
+        "kind": d.kind, "status": d.status, "document_type": d.document_type,
+        "page_count": d.page_count, "summary": d.summary,
+        "permanently_failed": d.permanently_failed,
+    }
+
+
+@router.get("/tree")
+def document_tree(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """The account's documents grouped by the case they're attached to (the flat-storage
+    equivalent of a folder tree); unattached docs land under a null case group."""
+    account = ensure_personal_account(db, user)
+    docs = db.execute(
+        select(Document).where(Document.account_id == account.id)
+        .order_by(Document.updated_at.desc())
+    ).scalars().all()
+    case_ids = {d.case_id for d in docs if d.case_id is not None}
+    cases = {
+        c.id: c for c in db.execute(select(Case).where(Case.id.in_(case_ids))).scalars()
+    } if case_ids else {}
+    groups: dict[str, dict] = {}
+    for d in docs:
+        key = str(d.case_id) if d.case_id else "_unclassified"
+        if key not in groups:
+            case = cases.get(d.case_id) if d.case_id else None
+            groups[key] = {
+                "case": ({"id": str(case.id), "cnr": case.cnr, "title": case.title}
+                         if case else None),
+                "files": [],
+            }
+        groups[key]["files"].append(_doc_view(d))
+    # Unclassified group last; the rest by most-recent activity (insertion order).
+    ordered = [g for k, g in groups.items() if k != "_unclassified"]
+    if "_unclassified" in groups:
+        ordered.append(groups["_unclassified"])
+    return {"groups": ordered}
+
+
+class RenameBody(BaseModel):
+    new_name: str
+
+
+@router.put("/{document_id}/rename")
+def rename_document(
+    document_id: str, body: RenameBody,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+) -> dict:
+    account = ensure_personal_account(db, user)
+    doc = db.get(Document, uuid.UUID(document_id))
+    if doc is None or doc.account_id != account.id:
+        raise HTTPException(status_code=404, detail="document not found")
+    try:
+        name = docproc.validate_filename(body.new_name, original=doc.filename)
+    except docproc.InvalidFilename as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    # Collision within the same case group.
+    clash = db.execute(
+        select(Document).where(
+            Document.account_id == account.id, Document.id != doc.id,
+            Document.case_id.is_(doc.case_id) if doc.case_id is None
+            else Document.case_id == doc.case_id,
+            Document.filename == name,
+        )
+    ).first()
+    if clash is not None:
+        raise HTTPException(status_code=409, detail="a file with that name already exists")
+    doc.filename = name
+    doc.title = name.rsplit(".", 1)[0] if "." in name else name
+    db.flush()
+    return _doc_view(doc)
+
+
+class ReclassifyBody(BaseModel):
+    target_case_id: str | None = None
+
+
+@router.put("/{document_id}/reclassify")
+def reclassify_document(
+    document_id: str, body: ReclassifyBody,
+    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+) -> dict:
+    account = ensure_personal_account(db, user)
+    doc = db.get(Document, uuid.UUID(document_id))
+    if doc is None or doc.account_id != account.id:
+        raise HTTPException(status_code=404, detail="document not found")
+    if body.target_case_id is None:
+        doc.case_id = None
+    else:
+        # The target case must belong to the requesting user (no cross-scope attach).
+        target = db.get(Case, uuid.UUID(body.target_case_id))
+        if target is None or target.user_id != user.id:
+            raise HTTPException(status_code=404, detail="target case not found")
+        doc.case_id = target.id
+    db.flush()
+    return _doc_view(doc)
 
 
 @router.post("")
