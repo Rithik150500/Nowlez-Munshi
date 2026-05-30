@@ -130,6 +130,17 @@ def mark_onboarded(user: User = Depends(get_current_user), db: Session = Depends
     return _me_dict(user)
 
 
+@router.get("/me/referral")
+def my_referral(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """The user's referral code + stats (code created lazily on first read)."""
+    from nm_core.billing import referrals
+
+    referrals.get_or_create_code(db, user)
+    return referrals.stats(db, user)
+
+
 @router.post("/me/export")
 def export_my_data(
     user: User = Depends(get_current_user), db: Session = Depends(get_db)
