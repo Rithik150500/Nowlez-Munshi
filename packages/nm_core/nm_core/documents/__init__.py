@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from nm_core import ai, ecourts
 from nm_core.db.models.case import CaseOrder
 from nm_core.db.models.document import Document
+from nm_core.documents import ocr
 from nm_core.storage import get_storage
 
 logger = logging.getLogger("nm_core.documents")
@@ -99,15 +100,20 @@ class DocumentRepository:
 
 
 def process_upload(session: Session, *, document_id) -> Document | None:
-    """Extract text + AI-summarize an uploaded document (PDF or DOCX). No OCR."""
+    """Extract text + AI-summarize an uploaded document (PDF or DOCX).
+
+    Falls back to Gemini OCR for scanned/image-only PDFs (no extractable text)."""
     doc = session.get(Document, document_id)
     if doc is None:
         return None
     data = get_storage().get(doc.storage_key)
     text = extract_text_any(data, content_type=doc.content_type, filename=doc.filename)
+    pages = page_count(data)
+    if ocr.needs_ocr(text, pages):
+        text = ocr.ocr_pdf(data) or text
     doc.extracted_text = text or None
     doc.summary = ai.summarize_order(text)
-    doc.page_count = page_count(data)
+    doc.page_count = pages
     doc.status = "processed"
     session.flush()
     return doc
@@ -140,8 +146,12 @@ def process_order(session: Session, *, order_id: uuid.UUID) -> CaseOrder | None:
         return order
     pdf = ecourts.fetch_pdf(order.order_url)
     order.file_path = get_storage().put(f"orders/{order.case_id}/{order.order_id}.pdf", pdf)
-    order.page_count = page_count(pdf)
-    order.summary = ai.summarize_order(extract_text(pdf))
+    pages = page_count(pdf)
+    order.page_count = pages
+    text = extract_text(pdf)
+    if ocr.needs_ocr(text, pages):
+        text = ocr.ocr_pdf(pdf) or text
+    order.summary = ai.summarize_order(text)
     if not order.descriptive_name:
         order.descriptive_name = f"Order dated {order.order_date}"
     session.flush()
