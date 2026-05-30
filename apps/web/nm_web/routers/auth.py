@@ -1,7 +1,7 @@
 """Auth endpoints: phone-OTP login, refresh, logout, dev-login, /me."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -128,3 +128,34 @@ def mark_onboarded(user: User = Depends(get_current_user), db: Session = Depends
         user.onboarded_at = datetime.now(UTC)
         db.flush()
     return _me_dict(user)
+
+
+@router.get("/me/referral")
+def my_referral(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """The user's referral code + stats (code created lazily on first read)."""
+    from nm_core.billing import referrals
+
+    referrals.get_or_create_code(db, user)
+    return referrals.stats(db, user)
+
+
+@router.post("/me/export")
+def export_my_data(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Response:
+    """Download a ZIP of all the user's data (GDPR). Rate-limited to 1/hour."""
+    from datetime import UTC, datetime
+
+    from nm_core import export
+
+    if not export.can_export(user):
+        raise HTTPException(status_code=429, detail="export allowed once per hour")
+    user.last_export_at = datetime.now(UTC)  # set before building (multi-worker safe)
+    db.flush()
+    data = export.build_user_export_zip(db, user=user)
+    return Response(
+        content=data, media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="nowlez-munshi-export.zip"'},
+    )

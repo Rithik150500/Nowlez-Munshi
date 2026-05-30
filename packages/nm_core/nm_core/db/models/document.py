@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from nm_core.db.base import Base
@@ -33,6 +33,17 @@ class Document(Base):
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Optional link to the case this upload belongs to (file library / auto-attach).
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDType, ForeignKey("cases.id", ondelete="SET NULL"), nullable=True
+    )
+    document_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    permanently_failed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     status: Mapped[str] = mapped_column(
         Text, nullable=False, default="ready", server_default="ready"
     )
@@ -43,4 +54,7 @@ class Document(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (Index("documents_account_idx", "account_id", "updated_at"),)
+    __table_args__ = (
+        Index("documents_account_idx", "account_id", "updated_at"),
+        Index("documents_case_id_idx", "case_id"),
+    )

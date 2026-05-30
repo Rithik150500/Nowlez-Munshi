@@ -8,14 +8,18 @@ from nm_core.db.models.billing import Subscription
 from nm_core.db.models.case import Case, CaseOrder, CasePreference
 from nm_core.db.models.cause_list import CauseListRow
 from nm_core.db.models.chat import ChatMessage, ChatThread
+from nm_core.db.models.coupon import CouponCode
 from nm_core.db.models.document import Document
+from nm_core.db.models.drip_state import UserDripState
 from nm_core.db.models.manual_review import ManualReviewItem
 from nm_core.db.models.messaging import MessageLog, OutboundMessage
 from nm_core.db.models.munshi_invoice import MunshiInvoice
 from nm_core.db.models.notification import Notification
 from nm_core.db.models.payment_event import PaymentEvent
 from nm_core.db.models.push import PushSubscription
+from nm_core.db.models.referral import Referral
 from nm_core.db.models.user import User
+from nm_core.db.models.waitlist import Waitlist
 
 __all__ = [
     "Account",
@@ -27,6 +31,7 @@ __all__ = [
     "CauseListRow",
     "ChatMessage",
     "ChatThread",
+    "CouponCode",
     "Document",
     "ManualReviewItem",
     "MessageLog",
@@ -37,6 +42,9 @@ __all__ = [
     "OtpCode",
     "PaymentEvent",
     "PushSubscription",
+    "Referral",
     "Subscription",
     "User",
+    "UserDripState",
+    "Waitlist",
 ]

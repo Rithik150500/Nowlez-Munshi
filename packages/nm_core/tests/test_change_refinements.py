@@ -87,3 +87,16 @@ def test_sweep_skips_case_forgotten_mid_batch(db_session, env, monkeypatch):
     stats = run_refresh_sweep(db_session)
     assert stats["skipped"] >= 1
     assert stats["refreshed"] == 0
+
+
+def test_cosmetic_stage_edit_is_not_a_change():
+    """A casing/whitespace-only stage re-edit must not fire a status_change (regression #5)."""
+    old = _case(stage="Appearance")
+    new = _case(stage="  appearance  ")
+    assert [c for c in detect_changes(old, new, today=TODAY) if c.type == "status_change"] == []
+
+
+def test_real_stage_change_still_fires():
+    old = _case(stage="Appearance")
+    new = _case(stage="Arguments")
+    assert any(c.type == "status_change" for c in detect_changes(old, new, today=TODAY))

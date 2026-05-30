@@ -110,10 +110,19 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
    Nowlez trial machine + cross-product exemption, unified Razorpay webhook router +
    `payment_events` replay (0018), daily billing cron, web invoices/trial endpoints.
    - *Deferred to Wave 5 polish:* referrals, coupons, waitlist (growth-billing, not core).
-4. ⬜ **Wave 4 — AI differentiation:** Tavily search, legal-doc drafting + templates, chat
-   feedback/edit/resume.
-5. ⬜ **Wave 5 — Document/search depth + growth polish:** universal FTS, file-tree, OCR,
-   drip email, GDPR export, richer re-engagement, ICS/voice/feedback/admin/client entity.
+4. ✅ **Wave 4 — AI differentiation** *(done)*: Tavily web search + web-source citations,
+   chat feedback (thumbs) + edit/regenerate, legal-doc drafting (sandboxed Node docx-js
+   runner + 100 templates, faithful port).
+5. ✅ **Wave 5 — Document/search depth + growth polish** *(done)*:
+   - ✅ Document & search: universal FTS (0020), file-library (tree/rename/reclassify),
+     OCR (Gemini Path A), AI auto-classify/name/auto-attach.
+   - ✅ Growth & web: ICS export, waitlist + demo (+ IP rate-limiter), GDPR ZIP export
+     (0022), coupons (0023), referrals (0024), drip email lifecycle (0025).
+
+**All five waves complete.** Remaining deferred-by-design items: paginated WhatsApp
+order viewer; HC morning-amendment + Sunday-preview digest windows; the Munshi
+distinct-over-window usage count (needs a `case_billing_periods` table); voice input;
+broader admin console. None are legacy-fidelity regressions.
 
 ### Closed gaps → commits (Waves 1–2)
 
@@ -130,7 +139,47 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 | Munshi postpaid (cycles · invoicing · grace/suspension/resume) | ✅ |
 | Nowlez trial · cross-product exemption | ✅ |
 | Unified Razorpay webhook + replay · billing cron · web invoices/trial | ✅ |
+| AI Tavily web search · chat feedback/edit · legal-doc drafting (Node) | ✅ |
 | Paginated order viewer (WhatsApp) | ⬜ deferred (needs interactive list + media UX polish) |
 | Referrals · coupons · waitlist (growth-billing) | ⬜ Wave 5 |
-| AI differentiation (Tavily, drafting, chat feedback) | ⬜ Wave 4 |
+
+## Post-Waves-1–4 fidelity verification (regressions — ALL FIXED)
+
+A fresh read of the shipped port against the legacy surfaced these behavioral
+regressions (file:line confirmed both sides). All fixed with tests:
+
+| # | Bug | Status |
+|---|---|---|
+| 1 | Cause-list back-resolution passed the raw abbreviation (`"WP"`) as case_type instead of the numeric NIC code → resolution failed for most rows. | ✅ translate via `hc_list_case_types` |
+| 2 | No "exactly one match" guard (`hits[0]`) → ambiguous search bound the wrong CNR. | ✅ unambiguous-only |
+| 3 | FIR police-station listing passed the complex code, not `est_code` → no stations. | ✅ pass `court_code_arr` |
+| 4 | Munshi billing: no 200-case cap; `cycle_end+7d` grace anchor. | ✅ cap + due+grace anchor (distinct-over-window count deferred — see below) |
+| 5 | Stage compare not normalized → spurious `status_change` on cosmetic edits. | ✅ `_normalize_stage` |
+| 6 | STOP set first-token-only & narrow (missed `OPT OUT`/`PAUSE`/romanized Hindi). | ✅ full legacy set + phrase match |
+| 7 | `fetch_url`/Tavily-Extract tool dropped. | ✅ restored |
+
+Faithful (no action): cycle math, trial + cross-product exemption, Razorpay webhook
+core, drafting (byte-identical runner), interactive/document send.
+
+**Deferred (infrastructure, not a bug):** legacy Munshi usage counts COUNT(DISTINCT
+case_id) over a `case_billing_periods` overlap window (a mid-cycle add-then-forget is
+still billed); greenfield bills the current snapshot. A faithful port needs a
+`case_billing_periods` table + case open/close lifecycle hooks — a Wave-5+ follow-up.
+
+## Wave 5 plan (build-ready specs in agent reports)
+
+Migrations strictly sequential from **0020**.
+
+**Documents & search** — *0020 unblocks all:* add `documents.{case_id, document_type,
+retry_count, permanently_failed}` + Postgres-only `search_tsv` generated columns + GIN on
+documents/cases/orders (SQLite → LIKE fallback).
+1. Universal FTS (M) — new `nm_core/search/`; port BM25 normalize/merge verbatim, dialect-split.
+2. File-tree / rename / reclassify (M) — flat DB "library grouped by case"; port rename validation.
+3. OCR (S–M) — **Path A: send scanned-PDF bytes to Gemini** (matches legacy; no Tesseract dep).
+4. AI auto-classify / name / attach (L) — new structured-Gemini helper; save-then-enrich worker split.
+
+**Growth & web polish** — ICS export (S) → waitlist+demo (S; public router + IP rate-limiter)
+→ GDPR ZIP export (M) → coupons (M) → referrals (M) → drip lifecycle (L).
+Cross-cutting: a shared `billing/webhook.py` activation hook (coupons + referrals), the
+tier-on-Subscription mapping for "+15 days" rewards, and the no-client-entity mapping.
 | Universal FTS · file-tree · OCR · drip · GDPR export · richer re-engage · ICS · voice · admin breadth · client entity | ⬜ Wave 5 |

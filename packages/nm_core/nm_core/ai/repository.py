@@ -75,3 +75,31 @@ class ChatRepository:
         self.s.add(msg)
         self.s.flush()
         return msg
+
+    def get_message(self, message_id: uuid.UUID) -> ChatMessage | None:
+        return self.s.get(ChatMessage, message_id)
+
+    def set_feedback(self, message_id: uuid.UUID, feedback: str | None) -> ChatMessage | None:
+        """Set thumbs feedback on an assistant message ('up' | 'down' | None to clear)."""
+        msg = self.s.get(ChatMessage, message_id)
+        if msg is None or msg.role != "assistant":
+            return None
+        msg.feedback = feedback
+        self.s.flush()
+        return msg
+
+    def truncate_from(self, thread_id: uuid.UUID, message_id: uuid.UUID) -> bool:
+        """Delete the given message and all messages at/after it in the thread (used to
+        edit-and-regenerate a turn). Returns False if the message isn't in the thread."""
+        anchor = self.s.get(ChatMessage, message_id)
+        if anchor is None or anchor.thread_id != thread_id:
+            return False
+        for m in self.s.execute(
+            select(ChatMessage).where(
+                ChatMessage.thread_id == thread_id,
+                ChatMessage.created_at >= anchor.created_at,
+            )
+        ).scalars():
+            self.s.delete(m)
+        self.s.flush()
+        return True

@@ -11,6 +11,7 @@ from nm_core.billing import (
     SubscriptionRepository,
     _count_cases,
     _count_members,
+    coupons,
     effective_tier,
     start_trial,
 )
@@ -27,6 +28,10 @@ router = APIRouter(prefix="/api", tags=["billing"])
 
 class CheckoutBody(BaseModel):
     tier: str
+
+
+class CouponQuery(BaseModel):
+    code: str
 
 
 @router.get("/billing")
@@ -63,6 +68,17 @@ def invoices(user: User = Depends(get_current_user), db: Session = Depends(get_d
          "paid_at": i.paid_at.isoformat() if i.paid_at else None}
         for i in rows
     ]}
+
+
+@router.post("/billing/validate-coupon")
+def validate_coupon(
+    body: CouponQuery, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """Preview a coupon (does not consume a use). 404 if invalid/expired/exhausted."""
+    coupon = coupons.validate_coupon(db, body.code)
+    if coupon is None:
+        raise HTTPException(status_code=404, detail="invalid or expired coupon")
+    return {"code": coupon.code, "discount_percent": coupon.discount_percent}
 
 
 @router.post("/billing/trial")

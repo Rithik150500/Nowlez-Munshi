@@ -16,6 +16,7 @@ production schedule.
 | `nm_worker.reengage` | cron | Nudge users inactive beyond `REENGAGE_AFTER_DAYS` |
 | `nm_worker.documents` | cron / worker | Process uploaded order/judgment documents |
 | `nm_worker.billing` | cron (daily) | Generate due Munshi invoices, run grace/suspension, expire lapsed trials |
+| `nm_worker.drip` | cron (daily) | Lifecycle drip emails (IST day-indexed, Active/Inactive track) |
 
 ## Run locally
 

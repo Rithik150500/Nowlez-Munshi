@@ -83,3 +83,14 @@ def test_clamped_anniversary_invoices_on_last_day(db_session, monkeypatch):
     # Feb has no 31st → anniversary clamps to Feb 28 (2026, non-leap).
     assert generate_due_invoices(db_session, today=date(2026, 2, 28)) == 1
     assert munshi.count_billable_cases(db_session, user.id) == 0
+
+
+def test_invoice_caps_at_200_cases(db_session, monkeypatch):
+    """Billing is capped at 200 cases/cycle; raw count is preserved for audit (regression #4)."""
+    user, _ = UserRepository(db_session).get_or_create_by_phone(phone="+919100000206")
+    user.billing_anniversary_day = 15
+    db_session.flush()
+    monkeypatch.setattr(munshi, "count_billable_cases", lambda s, uid: 250)
+    inv = generate_invoice(db_session, user=user, today=date(2026, 4, 15))
+    assert inv.case_count == 250  # raw count kept
+    assert inv.amount_inr == 200 * RATE_PER_CASE_INR  # billed amount clamped at the cap

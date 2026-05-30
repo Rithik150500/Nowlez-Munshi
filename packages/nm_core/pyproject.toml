@@ -37,3 +37,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nm_core"]
+# Ship the docx-js runner + reference templates (non-.py assets) with the package.
+artifacts = [
+    "nm_core/ai/docx_runner/*.js",
+    "nm_core/ai/docx_runner/package.json",
+    "nm_core/ai/reference/*.md",
+    "nm_core/ai/reference/templates/*.js",
+]
+# Never bundle the runner's npm deps — installed via `npm install` at deploy.
+exclude = ["nm_core/ai/docx_runner/node_modules"]

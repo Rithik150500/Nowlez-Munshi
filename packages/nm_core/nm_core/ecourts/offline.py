@@ -11,6 +11,7 @@ from nm_core.ecourts.models import (
     Act,
     Case,
     CaseStub,
+    CaseTypeRef,
     CourtComplexRef,
     DistrictRef,
     HCBenchSitting,
@@ -129,6 +130,13 @@ def offline_hc_bench_sittings(*, state_code: str, sitting_date: date) -> list[HC
 def offline_hc_cause_list_index(*, bench_id: str) -> list[HCCauseListIndex]:
     return [HCCauseListIndex(sr_no=1, bench=str(bench_id), list_type="Daily",
                             pdf_url=f"/cause_list/{bench_id}.pdf")]
+
+
+def offline_list_case_types(*, court_code: str) -> list[CaseTypeRef]:
+    return [
+        CaseTypeRef(code="47", name="WP - Writ Petition", court_code=str(court_code)),
+        CaseTypeRef(code="12", name="CRP - Civil Revision Petition", court_code=str(court_code)),
+    ]
 
 
 def offline_hc_cause_list_pdf_rows(*, pdf_url: str) -> list[HCCauseListPDFRow]:

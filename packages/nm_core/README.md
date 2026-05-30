@@ -27,8 +27,21 @@ both front doors (`apps/web`, `apps/bot`) and the `apps/worker` crons import it.
 
 - `ECOURTS_OFFLINE=1` → synthetic cases instead of the live portal.
 - `GEMINI_API_KEY` unset → the deterministic offline AI agent.
+- `TAVILY_API_KEY` unset → the `search_web` tool is hidden (case-book answers only).
+- No Node runtime → the `draft_document` tool is hidden (drafting disabled).
 - `fakeredis` + `RQ_SYNC=1` → no Redis/worker process needed.
 - `respx` stubs outbound HTTP in tests.
+
+## Legal-document drafting (Node)
+
+`ai/drafting.py` renders AI-emitted [docx-js](https://docx.js.org) JavaScript to a DOCX
+via a sandboxed Node subprocess (`ai/docx_runner/runner.js`; restricted `require`, no
+fs/process). The ~100 reference templates live in `ai/reference/templates/`. The runner's
+npm deps are **not** vendored — install them where the worker/web runs:
+
+```bash
+cd packages/nm_core/nm_core/ai/docx_runner && npm install --omit=dev
+```
 
 ## Develop
 

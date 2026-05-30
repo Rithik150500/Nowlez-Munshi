@@ -18,28 +18,51 @@ from sqlalchemy.orm import Session
 from nm_core.db.models.audit import AuditLog
 from nm_core.db.models.user import User
 
+# English + romanized Hindi (WhatsApp QWERTY norm) + Devanagari. Ported from the
+# legacy whatsapp_delivery router so common opt-outs ("OPT OUT", "PAUSE", "band karo")
+# are all honored — a DPDP-compliance surface.
 _STOP_KEYWORDS = frozenset({
-    "stop", "unsubscribe", "cancel", "stopall", "end", "quit", "रोको", "रुको", "बंद",
+    # English
+    "STOP", "STOP ALL", "STOP NOTIFICATIONS", "PAUSE", "UNSUBSCRIBE",
+    "OPT OUT", "OPT-OUT", "CANCEL", "END", "QUIT",
+    # Romanized Hindi
+    "BAND", "BAND KARO", "BAND KAR", "BANDH", "BANDH KARO",
+    "CHHODO", "ROK", "ROK DO", "RUKO", "RUK",
+    # Devanagari
+    "बंद", "बंद करो", "बंद कर", "रुक", "रुको", "रोक", "रोक दो", "छोड़ो", "रोको",
 })
 _START_KEYWORDS = frozenset({
-    "start", "unstop", "resume", "subscribe", "चालू", "शुरू", "शुरु",
+    "START", "UNSTOP", "RESUME", "SUBSCRIBE", "START ALL",
+    "चालू", "शुरू", "शुरु",
 })
 
 
-def _first_token(text: str) -> str:
-    """Lowercased first whitespace-token with surrounding punctuation stripped."""
-    parts = text.strip().split()
-    if not parts:
-        return ""
-    return parts[0].strip(".,!?;:'\"()[]।-").lower()
+def _matches(text: str | None, keywords: frozenset[str]) -> bool:
+    """Whole-phrase keyword match, tolerating trailing punctuation and a single
+    trailing word ("STOP ALL", "stop."), but not prefixes like "stopover"."""
+    if not text:
+        return False
+    normalized = text.strip().upper()
+    if normalized in keywords:
+        return True
+    if normalized.endswith((".", "!", "?")) and normalized[:-1].strip() in keywords:
+        return True
+    for kw in keywords:
+        if normalized.startswith(kw + " "):
+            tail = normalized[len(kw) + 1:].strip().rstrip(".!?")
+            if " " not in tail:  # exactly one trailing word
+                return True
+        if normalized.startswith((kw + "!", kw + ".")):
+            return True
+    return False
 
 
 def is_stop_keyword(text: str | None) -> bool:
-    return _first_token(text or "") in _STOP_KEYWORDS
+    return _matches(text, _STOP_KEYWORDS)
 
 
 def is_start_keyword(text: str | None) -> bool:
-    return _first_token(text or "") in _START_KEYWORDS
+    return _matches(text, _START_KEYWORDS)
 
 
 def is_opted_out(user: User) -> bool:

@@ -39,6 +39,26 @@ def _munshi_invoice_id(payload: dict[str, Any]) -> str | None:
     return str(inv) if inv else None
 
 
+def _subscription_notes(payload: dict[str, Any]) -> dict:
+    try:
+        return payload["payload"]["subscription"]["entity"].get("notes") or {}
+    except (KeyError, TypeError):
+        return {}
+
+
+def _on_activation(session: Session, *, account_id: str, notes: dict) -> None:
+    """Shared post-activation hook: consume a coupon use and apply a referral reward.
+
+    Both are idempotent (coupon increment is conditional on the cap; referral reward is
+    guarded by reward_applied), so a webhook replay can't double-apply."""
+    from nm_core.billing import coupons, referrals
+
+    code = notes.get("coupon_code")
+    if code:
+        coupons.increment_usage(session, str(code))
+    referrals.apply_reward_on_payment(session, account_id=uuid.UUID(account_id))
+
+
 def _provider_ref(payload: dict[str, Any], key: str) -> str | None:
     try:
         return str(payload["payload"][key]["entity"].get("id") or "") or None
@@ -73,6 +93,7 @@ def process_webhook(session: Session, *, event_id: str | None, payload: dict[str
             SubscriptionRepository(session).set_tier(
                 uuid.UUID(account_id), tier, provider_ref=_provider_ref(payload, "subscription"),
             )
+            _on_activation(session, account_id=account_id, notes=_subscription_notes(payload))
             return "nowlez_tier"
     if event in _TIER_CANCEL:
         found = extract_account_and_tier(payload)

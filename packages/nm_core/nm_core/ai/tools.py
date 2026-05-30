@@ -7,10 +7,86 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from nm_core.ai import drafting, tavily
 from nm_core.cases import CaseRepository
 
-# Gemini function declarations (JSON schema) for the tools below.
-TOOL_DECLARATIONS = [
+_SEARCH_WEB_DECLARATION = {
+    "name": "search_web",
+    "description": (
+        "Search the public web for current legal information (statutes, recent "
+        "judgments, news) when the case book can't answer. Returns titles, URLs, and "
+        "snippets to cite."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string", "description": "the web search query"}},
+        "required": ["query"],
+    },
+}
+
+_DRAFTING_DECLARATIONS = [
+    {
+        "name": "read_docx_reference",
+        "description": ("Read the docx-js API reference + template catalog. Call this "
+                        "before writing code for draft_document."),
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "read_docx_template",
+        "description": ("Load a reference template (by id from the catalog) showing the "
+                        "correct formatting for a document type, to adapt."),
+        "parameters": {
+            "type": "object",
+            "properties": {"template_id": {"type": "string", "description": "template id"}},
+            "required": ["template_id"],
+        },
+    },
+    {
+        "name": "draft_document",
+        "description": ("Generate a downloadable DOCX legal document by writing docx-js "
+                        "JavaScript code. Call read_docx_reference first; load the closest "
+                        "template with read_docx_template if one exists."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "document title"},
+                "code": {"type": "string", "description": "docx-js JavaScript source"},
+            },
+            "required": ["title", "code"],
+        },
+    },
+]
+
+
+_FETCH_URL_DECLARATION = {
+    "name": "fetch_url",
+    "description": (
+        "Read the full content of one or more web pages by URL (e.g. a full judgment "
+        "on Indian Kanoon) when search snippets aren't enough. Accepts a single URL or "
+        "a comma-separated list."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {"url": {"type": "string", "description": "URL or comma-separated URLs"}},
+        "required": ["url"],
+    },
+}
+
+
+def tool_declarations() -> list[dict]:
+    """The active tool surface — search_web/fetch_url and the drafting tools appear only
+    when their backing service (Tavily / a Node runtime) is configured."""
+    decls = list(_CASE_BOOK_DECLARATIONS)
+    if tavily.is_available():
+        decls.append(_SEARCH_WEB_DECLARATION)
+        decls.append(_FETCH_URL_DECLARATION)
+    if drafting.is_available():
+        decls.extend(_DRAFTING_DECLARATIONS)
+    return decls
+
+
+# Gemini function declarations (JSON schema) for the case-book tools below.
+_CASE_BOOK_DECLARATIONS = [
     {
         "name": "list_cases",
         "description": "List the user's case book: CNR, title, court, stage, next hearing.",
@@ -78,6 +154,8 @@ class ToolContext:
             a.id for a in AccountRepository(session).list_accounts_for_user(user.id)
         }
         self.cited: dict[str, str] = {}  # cnr -> title
+        self.web_sources: list[dict] = []  # {title, url} from search_web, for citations
+        self.documents: list[dict] = []  # drafted DOCX {storage_key, filename} for the answer
         self.calls: list[dict] = []  # {name, args} executed, for the answer record
 
     def _cite(self, case) -> None:
@@ -97,7 +175,48 @@ class ToolContext:
             return self._list_documents()
         if name == "get_document_text":
             return self._get_document_text(str(args.get("title", "")))
+        if name == "search_web":
+            return self._search_web(str(args.get("query", "")))
+        if name == "fetch_url":
+            return self._fetch_url(str(args.get("url", "")))
+        if name == "read_docx_reference":
+            return {"content": drafting.read_reference(), "templates": drafting.list_templates()}
+        if name == "read_docx_template":
+            text = drafting.read_template(str(args.get("template_id", "")))
+            if text is None:
+                return {"error": "template not found", "available": drafting.list_templates()}
+            return {"content": text}
+        if name == "draft_document":
+            return self._draft_document(str(args.get("title", "")), str(args.get("code", "")))
         return {"error": f"unknown tool {name}"}
+
+    def _draft_document(self, title: str, code: str) -> dict:
+        account_id = next(iter(self.account_ids), self.user_id)
+        try:
+            meta = drafting.draft_and_store(code, account_id=account_id, title=title or "document")
+        except drafting.DraftError as e:
+            return {"error": str(e)}
+        self.documents.append({"storage_key": meta["storage_key"], "filename": meta["filename"]})
+        return {"status": "created", "filename": meta["filename"], "bytes": meta["bytes"]}
+
+    def _search_web(self, query: str) -> dict:
+        if not query.strip():
+            return {"error": "empty query"}
+        results = tavily.search(query)
+        for r in results:  # track for web-source citations
+            if r.get("url"):
+                self.web_sources.append({"title": r["title"], "url": r["url"]})
+        return {"results": results}
+
+    def _fetch_url(self, url_input: str) -> dict:
+        urls = [u.strip() for u in url_input.split(",") if u.strip()]
+        if not urls:
+            return {"error": "url is required"}
+        out = tavily.extract(urls)
+        for r in out.get("results", []):  # track fetched pages as web sources
+            if r.get("url"):
+                self.web_sources.append({"title": r["url"], "url": r["url"]})
+        return out
 
     def _list_documents(self) -> dict:
         from nm_core.documents import DocumentRepository

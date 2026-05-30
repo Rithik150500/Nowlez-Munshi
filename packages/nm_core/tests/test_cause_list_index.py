@@ -51,3 +51,42 @@ def test_index_is_idempotent(db_session):
     )
     assert second["stored"] == 0  # re-index upserts, no duplicate rows
     assert db_session.query(CauseListRow).count() == 2
+
+
+def test_back_resolution_skips_untranslatable_case_type(db_session, monkeypatch):
+    """A PDF abbreviation absent from the case-type catalog is skipped, not queried
+    with a bad type (regression: raw 'WP' was sent as the case_type)."""
+    import nm_core.cause_lists as cl
+
+    # An offline catalog that doesn't contain 'WP' → nothing resolves.
+    monkeypatch.setattr(cl.ecourts, "hc_list_case_types",
+                        lambda **kw: [])
+    searched: list = []
+    monkeypatch.setattr(cl.ecourts, "hc_search_case_number",
+                        lambda **kw: searched.append(kw) or [])
+    stats = index_hc_cause_lists(
+        db_session, state_code="1", district_code="1", court_code="C1", sitting_date=SD,
+    )
+    assert stats["resolved"] == 0
+    assert searched == []  # never queried with an untranslatable type
+
+
+def test_back_resolution_requires_unique_match(db_session, monkeypatch):
+    """An ambiguous (>1) case-number search must NOT bind a CNR (regression: hits[0])."""
+    import nm_core.cause_lists as cl
+    from nm_core.ecourts.models import CaseStub
+
+    monkeypatch.setattr(cl.ecourts, "hc_list_case_types",
+                        lambda **kw: cl.ecourts.offline.offline_list_case_types(
+                            court_code=kw["court_code"]))
+    monkeypatch.setattr(cl.ecourts, "hc_search_case_number", lambda **kw: [
+        CaseStub(cnr="HCXX010000012026", title="A", case_number="WP/100/2026",
+                 court="HC", filing_year=2026, stage="Adm"),
+        CaseStub(cnr="HCXX010000022026", title="B", case_number="WP/100/2026",
+                 court="HC", filing_year=2026, stage="Adm"),
+    ])
+    index_hc_cause_lists(
+        db_session, state_code="1", district_code="1", court_code="C1", sitting_date=SD,
+    )
+    # both offline rows are 'WP' → ambiguous → none bound
+    assert db_session.query(CauseListRow).filter(CauseListRow.cnr.is_not(None)).count() == 0

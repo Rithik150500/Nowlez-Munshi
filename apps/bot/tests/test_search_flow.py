@@ -61,9 +61,18 @@ def test_case_number_search(db_session, sends):
     assert sends[-1]["rows"][0]["id"].startswith("search:track:")
 
 
-def test_fir_search(db_session, sends):
+def test_fir_search(db_session, sends, monkeypatch):
+    # Capture the police-station listing args: it must receive the est_code
+    # (court_code_arr), not the full complex code — else the endpoint returns nothing.
+    import nm_bot.search_flow as sf
+    seen: dict = {}
+    real = sf.ecourts.list_police_stations
+    monkeypatch.setattr(sf.ecourts, "list_police_stations",
+                        lambda **kw: seen.update(kw) or real(**kw))
+
     cx = _walk_to_complex(db_session, sends, "fir")
     assert _reply(db_session, button=cx) == ""  # FIR → police-station picker
+    assert seen["court_code"] == "DLND01"  # est_code from the offline complex, not "1"
     police = sends[-1]["rows"][0]["id"]
     assert police.startswith("search:police:")
     assert "FIR number" in _reply(db_session, button=police)

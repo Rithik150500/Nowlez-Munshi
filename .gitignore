@@ -17,3 +17,6 @@ htmlcov/
 # Frontend
 apps/web/frontend/node_modules/
 apps/web/frontend/dist/
+
+# docx-js runner deps (installed via `npm install` at deploy; see ai/docx_runner)
+packages/nm_core/nm_core/ai/docx_runner/node_modules/

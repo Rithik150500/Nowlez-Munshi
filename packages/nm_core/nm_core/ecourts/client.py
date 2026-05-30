@@ -8,6 +8,7 @@ from nm_core.ecourts import offline
 from nm_core.ecourts.models import (
     Case,
     CaseStub,
+    CaseTypeRef,
     CourtComplexRef,
     DistrictRef,
     HCBenchSitting,
@@ -196,6 +197,19 @@ def hc_cause_list_pdf_rows(*, pdf_url: str) -> list[HCCauseListPDFRow]:
     if get_settings().ECOURTS_OFFLINE:
         return offline.offline_hc_cause_list_pdf_rows(pdf_url=pdf_url)
     return _compose(lambda: _highcourt().fetch_cause_list_pdf_rows(pdf_url=pdf_url))()
+
+
+def hc_list_case_types(
+    *, state_code: str, district_code: str, court_code: str
+) -> list[CaseTypeRef]:
+    """HC case-type catalog — the abbreviation→numeric-code map for back-resolution."""
+    if get_settings().ECOURTS_OFFLINE:
+        return offline.offline_list_case_types(court_code=court_code)
+    return _compose(
+        lambda: _highcourt().list_case_types(
+            state_code=state_code, district_code=district_code, court_code=court_code
+        )
+    )()
 
 
 def hc_search_case_number(
