@@ -11,16 +11,20 @@ both front doors (`apps/web`, `apps/bot`) and the `apps/worker` crons import it.
 | `config` | Typed settings + the production-safety **hard-fails** (refuses to boot unsafely) |
 | `db` | SQLAlchemy engine, session scope, dialect-aware Alembic chain |
 | `identity` | Phone-canonical accounts, OTP, JWT, dev-login, WhatsApp→web link tokens |
-| `ecourts` | District/HC portal clients, retries + circuit breaker, **offline** synthetic source, QR/CNR parsing |
-| `cases` | Case book: tracking, hearings, orders, change detection |
-| `messaging` | Meta Graph client, inbound parsing, and the RQ outbound send **queue** |
+| `ecourts` | District/HC portal clients, retries + circuit breaker, **offline** synthetic source, QR/CNR parsing; **HC cause-list** parsers (`cause_list_hc`) |
+| `cases` | Case book: tracking, hearings, orders, change detection (incl. the imminent-hearing urgency split) |
+| `cause_lists` | HC cause-list **indexer** + CNR back-resolution into `cause_list_rows` |
+| `messaging` | Meta Graph client (text / interactive buttons+lists / document upload→send), inbound parsing, the RQ outbound send **queue** |
+| `consent`, `conversation` | DPDP STOP/START opt-out; per-user Redis conversation state for the guided-search flow |
 | `notifications` | Cross-channel fan-out (WhatsApp, email, web-push, in-app feed) |
-| `ai` | The agentic (function-calling) Munshi + the deterministic offline agent |
+| `ai` | The agentic Munshi (`tools`, `gemini`, offline) + `tavily` web search/fetch · `drafting` (docx-js) |
 | `teams` | Chambers: membership + RBAC |
-| `billing` | **Enforced** tier gates (`feature_allowed` / `within_*_limit`) + Razorpay |
-| `documents` | Order/judgment storage + OnlyOffice DOCX editing |
+| `billing` | Tier gates + trials + cross-product exemption (`__init__`) · `cycles` · `munshi` (postpaid) · `coupons` · `referrals` · unified `webhook` |
+| `documents` | Order/upload storage + OnlyOffice editing · `ocr` (Gemini) · `classify` (AI name/type/auto-attach) |
+| `search` | Universal full-text search over the user's docs/cases/orders (PG tsvector / SQLite LIKE) |
+| `export` | GDPR data-export ZIP builder · `waitlist` public signup · `ratelimit` (Redis IP limiter) |
 | `push`, `email` | Web-push (VAPID) and email (console/SMTP) transports |
-| `digests`, `growth`, `tracking` | Cause-list digests, re-engagement, refresh sweep logic |
+| `digests`, `drip`, `growth`, `tracking`, `holidays` | Cause-list/hearing digests, the D1–D27 drip campaign, re-engagement, the refresh sweep, the court-holiday calendar |
 | `i18n`, `observability`, `storage`, `replay` | EN/HI strings, Sentry/alerts, blob storage, idempotent replay |
 
 ## Offline seams (how tests + a credless demo run)

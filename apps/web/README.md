@@ -11,14 +11,30 @@ nm_web/
   deps.py         request dependencies (DB session, current user)
   serializers.py  response models
   routers/        auth cases notifications ask teams insights billing
-                  admin documents i18n search push
+                  admin documents i18n search library public push
 frontend/         React + Vite SPA (manifest + service worker → installable PWA)
 ```
 
 ## Routers
 
 `auth` · `cases` · `notifications` · `ask` (AI Munshi) · `teams` · `insights` ·
-`billing` · `admin` · `documents` · `i18n` · `search` · `push`.
+`billing` · `admin` · `documents` · `i18n` · `search` (eCourts portal) · `library`
+(the user's own data) · `public` · `push`.
+
+Notable endpoints added by the port:
+
+- **AI / library** — `GET /api/library/search` (universal full-text over the user's
+  docs/cases/orders, billing-gated).
+- **Documents** — `GET /api/documents/tree`, `PUT /api/documents/{id}/rename`,
+  `PUT /api/documents/{id}/reclassify` (the file library).
+- **Billing** — `POST /api/billing/validate-coupon`, `POST /api/billing/trial`,
+  `GET /api/billing/invoices`; admin `GET|POST /api/admin/coupons` +
+  `POST /api/admin/coupons/{id}/deactivate`.
+- **Account** — `GET /api/auth/me/referral` (code + stats), `POST /api/auth/me/export`
+  (GDPR ZIP, 1/hour).
+- **Calendar** — `GET /api/calendar/export.ics`.
+- **Public (no auth)** — `POST /api/waitlist`, `GET /api/waitlist/count`,
+  `POST /api/demo-request` (IP rate-limited).
 
 ## Run locally
 

@@ -14,7 +14,7 @@ production schedule.
 | `nm_worker.digest` | cron | Build and send scheduled cause-list digests |
 | `nm_worker.canary` | cron | Fetch a known CNR from the live portal to detect eCourts schema drift / outages |
 | `nm_worker.reengage` | cron | Nudge users inactive beyond `REENGAGE_AFTER_DAYS` |
-| `nm_worker.documents` | cron / worker | Process uploaded order/judgment documents |
+| `nm_worker.documents` | cron / worker | Process order PDFs + re-enrich uploads (text/OCR → AI classify, retry to `permanently_failed`) |
 | `nm_worker.billing` | cron (daily) | Generate due Munshi invoices, run grace/suspension, expire lapsed trials |
 | `nm_worker.drip` | cron (daily) | Lifecycle drip emails (IST day-indexed, Active/Inactive track) |
 
