@@ -113,8 +113,11 @@ Status as of the latest push on `claude/port-legacy` (PR #4).
 4. ✅ **Wave 4 — AI differentiation** *(done)*: Tavily web search + web-source citations,
    chat feedback (thumbs) + edit/regenerate, legal-doc drafting (sandboxed Node docx-js
    runner + 100 templates, faithful port).
-5. ⬜ **Wave 5 — Document/search depth + growth polish:** universal FTS, file-tree, OCR,
-   drip email, GDPR export, richer re-engagement, ICS/voice/feedback/admin/client entity.
+5. 🔄 **Wave 5 — Document/search depth + growth polish** *(in progress)*:
+   - ✅ Document & search cluster: universal FTS (0020), file-library (tree/rename/
+     reclassify), OCR (Gemini Path A), AI auto-classify/name/auto-attach.
+   - ⬜ Growth & web: ICS export, waitlist + demo, GDPR ZIP export, coupons, referrals,
+     drip email lifecycle.
 
 ### Closed gaps → commits (Waves 1–2)
 
